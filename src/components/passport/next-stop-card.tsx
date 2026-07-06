@@ -1,4 +1,5 @@
 import Image from "next/image";
+import Link from "next/link";
 import { Icon } from "@/components/icon";
 
 export function NextStopCard({
@@ -6,14 +7,19 @@ export function NextStopCard({
   name,
   description,
   location,
+  href,
 }: {
   image: string;
   name: string;
   description: string;
   location: string;
+  href: string;
 }) {
   return (
-    <div className="ambient-shadow group relative flex min-h-[240px] cursor-pointer flex-col justify-between overflow-hidden rounded-xl bg-roasted-espresso p-6 text-cream-foam">
+    <Link
+      href={href}
+      className="ambient-shadow group relative flex min-h-[240px] cursor-pointer flex-col justify-between overflow-hidden rounded-xl bg-roasted-espresso p-6 text-cream-foam"
+    >
       <div className="absolute inset-0 opacity-20 transition-transform duration-700 group-hover:scale-105">
         <Image src={image} alt={name} fill sizes="33vw" className="object-cover" />
       </div>
@@ -30,10 +36,10 @@ export function NextStopCard({
         <span className="flex items-center gap-1 font-label-md text-label-md">
           <Icon name="location_on" className="text-[16px]" /> {location}
         </span>
-        <button className="flex h-8 w-8 items-center justify-center rounded-full bg-cream-foam text-roasted-espresso transition-colors hover:bg-secondary-fixed">
+        <span className="flex h-8 w-8 items-center justify-center rounded-full bg-cream-foam text-roasted-espresso transition-colors group-hover:bg-secondary-fixed">
           <Icon name="arrow_forward" className="text-[18px]" />
-        </button>
+        </span>
       </div>
-    </div>
+    </Link>
   );
 }

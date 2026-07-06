@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { Icon } from "./icon";
 
 const moods = [
@@ -16,6 +17,16 @@ const HERO_IMAGE =
 
 export function HeroSearch() {
   const [activeMood, setActiveMood] = useState("Laptop Friendly");
+  const [query, setQuery] = useState("");
+  const router = useRouter();
+
+  function handleSearch(e: React.FormEvent) {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (query.trim()) params.set("q", query.trim());
+    const search = params.toString();
+    router.push(search ? `/finder?${search}` : "/finder");
+  }
 
   return (
     <section className="relative flex min-h-[614px] flex-col items-center justify-center overflow-hidden rounded-xl p-8 text-center">
@@ -36,17 +47,25 @@ export function HeroSearch() {
           across the city.
         </p>
 
-        <div className="mt-4 flex w-full items-center rounded-xl border-b-2 border-transparent bg-oat-milk p-2 shadow-sm transition-colors focus-within:border-sage-leaf">
+        <form
+          onSubmit={handleSearch}
+          className="mt-4 flex w-full items-center rounded-xl border-b-2 border-transparent bg-oat-milk p-2 shadow-sm transition-colors focus-within:border-sage-leaf"
+        >
           <Icon name="search" className="ml-3 mr-2 text-outline" />
           <input
             type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
             placeholder="Search by coffee type, cafe name, or roaster..."
             className="w-full border-none bg-transparent px-2 py-3 font-body-md text-body-md text-roasted-espresso placeholder:text-outline-variant focus:ring-0"
           />
-          <button className="ml-2 rounded-lg bg-roasted-espresso px-6 py-3 font-label-md text-label-md text-cream-foam transition-colors hover:bg-primary-container">
+          <button
+            type="submit"
+            className="ml-2 rounded-lg bg-roasted-espresso px-6 py-3 font-label-md text-label-md text-cream-foam transition-colors hover:bg-primary-container"
+          >
             Find
           </button>
-        </div>
+        </form>
 
         <div className="mt-6 flex flex-wrap justify-center gap-3">
           <span className="mr-2 self-center font-label-caps text-label-caps font-bold uppercase tracking-[0.05em] text-on-surface-variant">

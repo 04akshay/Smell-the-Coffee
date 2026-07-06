@@ -70,12 +70,15 @@
 
 ```
 src/
+  lib/
+    cafes.ts                         — Shared cafe dataset (CafeRecord[]) used by Home, Finder, and Cafe Detail
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
     page.tsx                          — Home
-    finder/page.tsx                   — Coffee Finder
-    cafe/roastery-coffee-house/page.tsx — Cafe detail
+    finder/page.tsx                   — Coffee Finder (server shell; delegates to FinderView)
+    cafe/roastery-coffee-house/page.tsx — Cafe detail (static route, reads from lib/cafes.ts)
+    cafe/[slug]/page.tsx              — Cafe detail (dynamic route for all other cafes; notFound() on miss)
     bean-database/page.tsx            — Bean Database listing
     bean-database/baba-budangiri/page.tsx — Bean detail
     brewing-guide/page.tsx            — Brewing Guide listing
@@ -88,10 +91,11 @@ src/
     top-nav.tsx                       — Desktop sticky nav (client)
     bottom-nav.tsx                    — Mobile 7-tab horizontal scrollable nav (client)
     mobile-top-bar.tsx                — Mobile header (brand + icons, md:hidden)
-    hero-search.tsx
-    trending-cafes.tsx
+    hero-search.tsx                   — Search form submits to /finder?q=... (client)
+    trending-cafes.tsx                — Reads featured/small cafes from lib/cafes.ts, all linked
     finder/
-      sidebar-filters.tsx             — Checkbox filter groups (client)
+      finder-view.tsx                 — Client component: owns filter/sort/search state, renders grid + empty state
+      sidebar-filters.tsx             — Checkbox filter groups (controlled by finder-view, client)
       cafe-card.tsx                   — Grid card with hover overlay
     cafe/
       cafe-hero.tsx
@@ -243,14 +247,15 @@ Use `<Icon name="<material-symbol-name>" />` for all icons. Add `filled` prop fo
 **Purpose:** Entry point. Lets users search for cafes and see what's trending.
 
 **Components:**
-- `HeroSearch` — large headline + search input CTA
-- `TrendingCafes` — horizontal scrollable cards of top-rated cafes
+- `HeroSearch` — large headline + search form (client). Submitting routes to `/finder?q=<query>`.
+- `TrendingCafes` — featured + 2 small cards, all sourced from `lib/cafes.ts` and linked to `/cafe/[slug]`
 
 **User flow:**
 1. User lands on `/`
 2. Sees hero with search prompt
-3. Can type in HeroSearch and (future: route to `/finder` with query) or browse trending cafes
-4. Clicking a trending cafe card navigates to its detail page
+3. Types a query and submits (or presses Enter) → routes to `/finder?q=<query>`, which pre-filters the grid by cafe name/roaster/tags
+4. Or browses trending cafes; clicking a card navigates to its detail page
+5. Mood chips (Laptop Friendly, Minimalist, etc.) remain a local visual toggle only — they don't map to any Finder filter dimension, so they are intentionally not wired to navigation (would create a misleading empty-filter result)
 
 ---
 
@@ -259,46 +264,56 @@ Use `<Icon name="<material-symbol-name>" />` for all icons. Add `filled` prop fo
 **Purpose:** Cafe directory with sidebar filtering. The primary discovery surface.
 
 **Components:**
-- `SidebarFilters` (`client`) — 4 filter groups with real checkbox state
-- `CafeCard` — grid card; cards with `href` prop link to cafe detail; others are non-navigable
+- `FinderView` (`client`, `src/components/finder/finder-view.tsx`) — owns filter/sort/search state via `useSearchParams` + `useState`; computes the visible cafe list and renders the empty state
+- `SidebarFilters` (`client`) — 4 filter groups, controlled by `FinderView` (lifted state, no longer local)
+- `CafeCard` — grid card; cards with `href` prop link to cafe detail
 
-**Filter groups:**
+**Filter groups (all functional):**
 
-| Group | Options |
-|---|---|
-| Neighborhood | Safdarjung, Vasant Vihar, Hauz Khas, Connaught Place |
-| Noise Level | Quiet (Focus), Ambient (Chatter), Bustling (Loud) |
-| Vibe | Workspace, Date Spot, Reading Nook |
-| Roaster Used | Onyx Coffee Lab, Sey Coffee, Intelligentsia |
-
-**Cafes in directory (7):**
-
-| Name | Tags | Linked Detail Page |
+| Group | Options | Matches against |
 |---|---|---|
-| Roastery Coffee House | Khan Market, Workspace, Quiet | `/cafe/roastery-coffee-house` ✓ |
-| Blue Tokai Safdarjung | Safdarjung, Workspace, Quiet | — |
-| Perch Wine & Coffee Bar | Vasant Vihar, Date Spot, Ambient | — |
-| Subko Cacao Mill | Hauz Khas, Social, Bustling | — |
-| Quick Brown Fox | Dhan Mill, Reading Nook, Quiet | — |
-| Devan's South Indian | Lodhi Colony, Heritage, Ambient | — |
-| The Artful Baker | Khan Market, Bakery, Bustling | — |
+| Neighborhood | Safdarjung, Vasant Vihar, Hauz Khas, Connaught Place | `cafe.neighborhood` (no cafe currently has Connaught Place — filtering to it correctly yields zero results) |
+| Noise Level | Quiet (Focus), Ambient (Chatter), Bustling (Loud) | base word matched against `cafe.tags` |
+| Vibe | Workspace, Date Spot, Reading Nook | `cafe.tags` |
+| Roaster Used | Onyx Coffee Lab, Sey Coffee, Intelligentsia | `cafe.roaster` |
 
-**Sort options:** Newest Added, Highest Rated, Closest to Me (UI only — not wired to filter logic yet)
+No option checked in a group = that group doesn't filter. Across groups the filter is AND; within a group it's OR. Defaults start empty (previously defaulted to "Safdarjung" + "Quiet (Focus)", which — now that filtering is live — would have hidden 6 of 7 cafes on first load).
 
-**TopNav behavior:** Shows inline search input when `pathname === '/finder'`
+**Cafes in directory (7) — all linked, all data in `src/lib/cafes.ts`:**
+
+| Name | Neighborhood | Roaster | Detail Page |
+|---|---|---|---|
+| Roastery Coffee House | Khan Market | Onyx Coffee Lab | `/cafe/roastery-coffee-house` |
+| Blue Tokai Safdarjung | Safdarjung | Onyx Coffee Lab | `/cafe/blue-tokai-safdarjung` |
+| Perch Wine & Coffee Bar | Vasant Vihar | Sey Coffee | `/cafe/perch-wine-coffee-bar` |
+| Subko Cacao Mill | Hauz Khas | Intelligentsia | `/cafe/subko-cacao-mill` |
+| Quick Brown Fox | Dhan Mill | Sey Coffee | `/cafe/quick-brown-fox` |
+| Devan's South Indian | Lodhi Colony | Intelligentsia | `/cafe/devans-south-indian` |
+| The Artful Baker | Khan Market | Onyx Coffee Lab | `/cafe/the-artful-baker` |
+
+**Sort options (all functional):** Newest Added (declared array order), Highest Rated (`rating` desc), Closest to Me (`distanceKm` asc — a content-only field on `CafeRecord`, not real geolocation).
+
+**Search (`?q=`):** Matches cafe name, roaster, or tags (case-insensitive substring). Populated by `HeroSearch` on Home; the header shows `Showing N of 7 Cafes ... for "query"` and a "Clear filters" action once any filter/search is active.
+
+**Empty state:** "No cafes match these filters" + "Try clearing a filter or two" — shown when the combined filter/search/sort yields zero cafes. Built from existing typography tokens only (no new visual pattern).
+
+**TopNav behavior:** Shows inline search input when `pathname === '/finder'`. **Known gap:** this inline input is still not wired to the `q` param — wiring it requires either lifting shared state via URL (would need to wrap the layout-level `TopNav` in a `Suspense` boundary for `useSearchParams`, which is a broader architectural change) or a different state-sharing approach. Deferred; use the Home hero search or type directly in the URL (`/finder?q=...`) in the meantime.
 
 **User flow:**
-1. User clicks "Coffee Finder" in nav → lands on `/finder`
-2. Sees 7 cafe cards in a responsive grid (1 → 2 → 3 columns)
-3. Uses sidebar checkboxes to filter by neighborhood, noise, vibe, or roaster (client-side state; grid not yet wired to filter results)
-4. Hovers a card → image scales up + "View Profile" overlay appears
-5. If cafe has a detail page (`href`), clicking navigates to it
+1. User clicks "Coffee Finder" in nav (or arrives via `/finder?q=...` from Home) → lands on `/finder`
+2. Sees up to 7 cafe cards in a responsive grid (1 → 2 → 3 columns), narrowed by any incoming search query
+3. Uses sidebar checkboxes to filter by neighborhood, noise, vibe, or roaster — grid updates live
+4. Changes sort order — grid re-sorts live
+5. Hovers a card → image scales up + "View Profile" overlay appears
+6. Clicking a card navigates to its detail page
 
 ---
 
 ### 5.3 Cafe Detail (`/cafe/[slug]`)
 
-**Implemented slug:** `roastery-coffee-house`
+**Implemented slugs (7):** `roastery-coffee-house` (static route, kept for history — reads from the same `lib/cafes.ts` record), plus `blue-tokai-safdarjung`, `perch-wine-coffee-bar`, `subko-cacao-mill`, `quick-brown-fox`, `devans-south-indian`, `the-artful-baker` (dynamic `[slug]` route via `generateStaticParams`). Next.js resolves the static segment first for an exact match, so both routes coexist safely — unknown slugs hit `notFound()`.
+
+**Known gap:** no back link / breadcrumb / related-cafes rail yet (one-way trap) — pending a design pass, tracked separately.
 
 **Purpose:** Deep profile of a single cafe — vibe, utility, coffee menu, gallery, location.
 
@@ -529,7 +544,7 @@ Use `<Icon name="<material-symbol-name>" />` for all icons. Add `filled` prop fo
 - `StatCard` × 2 — Favorite Bean (Ethiopian Yirgacheffe) + Brew Style (Aeropress)
 - `FriendBoard` — ranked leaderboard: Sarah J. (#1, 34 badges), You (#2, 12 badges), Marcus K. (#3, 9 badges)
 - `RecentActivity` — 3 feed items (friend check-in, badge unlock, RSVP)
-- `NextStopCard` — AI-style recommendation card for next cafe to visit
+- `NextStopCard` — AI-style recommendation card for next cafe to visit; now requires an `href` prop and renders as a `Link` (whole card, no nested `<button>`)
 
 **Profile data (Alex Bean):**
 - Level 5 | 42 Cafes | 128 Vibes | 3k Points
@@ -541,7 +556,7 @@ Use `<Icon name="<material-symbol-name>" />` for all icons. Add `filled` prop fo
 | The Eastside Espresso Run | 4/5 (80%) |
 | The Hidden Gems | 1/4 (25%) |
 
-**Next Stop recommendation:** Devan's South Indian Filter, Lodhi Colony (based on dark roast preference)
+**Next Stop recommendation:** Devan's South Indian Filter, Lodhi Colony (based on dark roast preference) — links to `/cafe/devans-south-indian`
 
 **User flow:**
 1. User clicks "Passport" in nav → lands on `/passport`
@@ -562,11 +577,12 @@ Use `<Icon name="<material-symbol-name>" />` for all icons. Add `filled` prop fo
 ```
 Home (/) → Coffee Finder (/finder) → Cafe Detail (/cafe/roastery-coffee-house)
 ```
-1. Lands on Home → sees trending cafes
-2. Clicks "Coffee Finder" in nav
-3. Applies "Khan Market" neighborhood filter
+1. Lands on Home → sees trending cafes, or types a search query in HeroSearch
+2. Clicks "Coffee Finder" in nav, or search submits to `/finder?q=...`
+3. Applies neighborhood/noise/vibe/roaster filters — grid updates live
 4. Hovers Roastery Coffee House card → clicks "View Profile"
 5. Reads full cafe profile, gallery, and location
+6. **Known gap:** no way back to Finder or to another cafe from here — pending a design pass (breadcrumb + related-cafes rail)
 
 ---
 
@@ -618,9 +634,9 @@ Passport (/passport) → Coffee Finder (/finder) → Cafe Detail (/cafe/roastery
 1. Clicks "Passport" in nav
 2. Views trophy case — notices "Roaster's Choice" stamp is locked
 3. Checks active trail progress (Eastside Espresso Run: 4/5)
-4. Sees "Next Stop" recommendation (Devan's South Indian Filter)
-5. Goes to Coffee Finder to locate that cafe
-6. Visits cafe detail to plan visit + stamp passport (future)
+4. Sees "Next Stop" recommendation (Devan's South Indian Filter) — now a real `Link`
+5. Clicks it → goes directly to `/cafe/devans-south-indian` (no longer requires a manual detour through Coffee Finder)
+6. Visits cafe detail to plan visit; "Stamp My Passport" CTA still not wired — pending a confirm/success design
 
 ---
 
@@ -683,6 +699,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-06 | Discovery loop wired end-to-end: shared `lib/cafes.ts` dataset (7 cafes), dynamic `/cafe/[slug]` route, Finder filters/sort/search made functional, Home hero search + trending cards linked, Passport Next Stop card linked | — |
 | 2026-07-06 | Knowledge Base document created | — |
 | Prior | Community Hub page added | — |
 | Prior | Coffee Finder replaced with Cafe Directory (sidebar filters + grid) | 0476988 |

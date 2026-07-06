@@ -139,6 +139,7 @@ const nextStop = {
   description:
     "Based on your love for dark roasts, this heritage roastery in Lodhi Colony is a must-visit.",
   location: "Lodhi Colony",
+  href: "/cafe/devans-south-indian",
 };
 
 export default function PassportPage() {
