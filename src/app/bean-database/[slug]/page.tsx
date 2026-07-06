@@ -1,13 +1,29 @@
+import { notFound } from "next/navigation";
 import { BeanHero } from "@/components/bean-detail/bean-hero";
 import { RadarChart } from "@/components/bean-detail/radar-chart";
 import { InfoCard } from "@/components/bean-detail/info-card";
 import { PouringNowList } from "@/components/bean-detail/pouring-now-list";
 import { SourcedByList } from "@/components/bean-detail/sourced-by-list";
-import { getBeanBySlug } from "@/lib/beans";
+import { beans, getBeanBySlug } from "@/lib/beans";
 
-const bean = getBeanBySlug("baba-budangiri")!;
+export function generateStaticParams() {
+  return beans
+    .filter((bean) => bean.slug !== "baba-budangiri")
+    .map((bean) => ({ slug: bean.slug }));
+}
 
-export default function BabaBudangiriPage() {
+export default async function BeanDetailPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const bean = getBeanBySlug(slug);
+
+  if (!bean) {
+    notFound();
+  }
+
   return (
     <main className="mx-auto max-w-container-max px-margin-mobile py-8 pb-32 md:px-margin-desktop md:pb-section-gap">
       <BeanHero

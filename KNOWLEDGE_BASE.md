@@ -72,6 +72,7 @@
 src/
   lib/
     cafes.ts                         — Shared cafe dataset (CafeRecord[]) used by Home, Finder, and Cafe Detail
+    beans.ts                         — Shared bean dataset (BeanRecord[]) used by Bean Database listing and Bean Detail; pouringSpots reference real cafe slugs from cafes.ts
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -79,8 +80,9 @@ src/
     finder/page.tsx                   — Coffee Finder (server shell; delegates to FinderView)
     cafe/roastery-coffee-house/page.tsx — Cafe detail (static route, reads from lib/cafes.ts)
     cafe/[slug]/page.tsx              — Cafe detail (dynamic route for all other cafes; notFound() on miss)
-    bean-database/page.tsx            — Bean Database listing
-    bean-database/baba-budangiri/page.tsx — Bean detail
+    bean-database/page.tsx            — Bean Database listing (server shell; delegates to BeanDatabaseView)
+    bean-database/baba-budangiri/page.tsx — Bean detail (static route, reads from lib/beans.ts)
+    bean-database/[slug]/page.tsx     — Bean detail (dynamic route for the other 9 beans; notFound() on miss)
     brewing-guide/page.tsx            — Brewing Guide listing
     brewing-guide/v60/page.tsx        — V60 guide detail
     events/page.tsx                   — Event Roster
@@ -97,6 +99,8 @@ src/
       finder-view.tsx                 — Client component: owns filter/sort/search state, renders grid + empty state
       sidebar-filters.tsx             — Checkbox filter groups (controlled by finder-view, client)
       cafe-card.tsx                   — Grid card with hover overlay
+    bean-database/
+      bean-database-view.tsx          — Client component: owns search state for the whole page body (hero through index)
     cafe/
       cafe-hero.tsx
       cafe-insights.tsx
@@ -347,43 +351,49 @@ No option checked in a group = that group doesn't filter. Across groups the filt
 
 **Components:**
 - `EducationHero` — featured article card ("Know Your Beans: The Roasting Process")
-- `SearchFilterBar` — sticky search + filter chip bar (docks below nav at `top-16 md:top-20`)
-- `RegionalFavorites` — bento grid: 1 featured bean (links to detail) + 5 secondary beans
+- `SearchFilterBar` — sticky search + filter chip bar (docks below nav at `top-16 md:top-20`); the text input is **functional** (controlled by `BeanDatabaseView`), filtering the Complete Index below by name/notes/process. The 3 chip buttons (Region, Roast Level, Process) remain unwired — no design/taxonomy decision made yet for how they should look active vs. inactive.
+- `RegionalFavorites` — bento grid: 1 featured bean + 6 secondary beans, **all linked** to detail pages
 - `FlavorNotesGrid` — 4-quadrant flavor wheel sprite (Acidity/Citrus, Sweetness/Cocoa, Floral/Delicate, Nutty/Earthy)
-- `BeanList` — text list of beans with process badge + flavor notes
+- `BeanList` — Complete Index; rows are now `Link`s to detail pages, with an empty state when search yields nothing
+
+**`BeanDatabaseView`** (`client`) owns the search state for the whole page body, so the sticky search bar (near the top) can filter the Complete Index (further down) without changing their DOM order.
 
 **Featured bean:** Monsoon Malabar AA — Baba Budangiri → links to `/bean-database/baba-budangiri`
 
-**Secondary beans:** Biligiri Hills Washed, Kents Honey Process, Andhra Pradesh Organic, Monsooned Malabar, Nilgiri Hills, Ethiopia Yirgacheffe
+**Secondary beans (all linked):** Biligiri Hills Washed, Kents Honey Process, Andhra Pradesh Organic, Monsooned Malabar, Nilgiri Hills, Ethiopia Yirgacheffe
 
-**Bean index (3 entries):**
-| Bean | Process | Flavor Notes |
+**Bean index / Complete Index (3 entries, all linked):**
+| Bean | Process | Detail Page |
 |---|---|---|
-| Kalledevarapura Estate Pulp Sun Dried | Washed | Milk Chocolate, Vanilla, Citrus |
-| Gungegiri Estate Arabica | Natural | Blackberry, Dark Chocolate, Molasses |
-| Ratnagiri Estate Peaberry | Honey | Caramel, Green Apple, Almond |
+| Kalledevarapura Estate Pulp Sun Dried | Washed | `/bean-database/kalledevarapura-estate` |
+| Gungegiri Estate Arabica | Natural | `/bean-database/gungegiri-estate-arabica` |
+| Ratnagiri Estate Peaberry | Honey | `/bean-database/ratnagiri-estate-peaberry` |
+
+Regional Favorites and the Complete Index are intentionally non-overlapping sets (10 unique beans total, matching the original content split) — a bean isn't shown twice.
 
 **User flow:**
 1. User clicks "Bean Database" in nav → lands on `/bean-database`
 2. Sees education hero article at top
-3. Sticky search/filter bar docks below nav when scrolling
-4. Browses regional favorites bento; clicks featured bean → goes to detail page
-5. Explores flavor quadrants; scrolls to complete bean index
+3. Sticky search/filter bar docks below nav when scrolling; typing filters the Complete Index live
+4. Browses regional favorites bento; clicks any featured or secondary bean → goes to its detail page
+5. Explores flavor quadrants; scrolls to Complete Index, clicks a row → goes to its detail page
 
 ---
 
 ### 5.5 Bean Detail (`/bean-database/[slug]`)
 
-**Implemented slug:** `baba-budangiri`
+**Implemented slugs (10):** `baba-budangiri` (static route, reads from the same `lib/beans.ts` record), plus `biligiri-hills-washed`, `kents-honey-process`, `andhra-pradesh-organic`, `monsooned-malabar`, `nilgiri-hills`, `ethiopia-yirgacheffe`, `kalledevarapura-estate`, `gungegiri-estate-arabica`, `ratnagiri-estate-peaberry` (dynamic `[slug]` route via `generateStaticParams`). Same static-route-wins-on-exact-match pattern as `/cafe/[slug]`.
+
+**Known gap:** no back link / breadcrumb / related-beans rail yet (one-way trap) — pending a design pass, same as Cafe Detail.
 
 **Purpose:** In-depth profile of a single bean origin — flavor, process, roast, where to find it.
 
 **Components:**
-- `BeanHero` — tag ("Single Origin"), name, description, origin, altitude
-- `RadarChart` (client) — interactive SVG flavor radar with 5 axes; hover tooltips on data points; animated `pulse-point` keyframe
-- `InfoCard` × 2 — Process card (Washed / Natural) + Roast card (Medium-Dark recommended for espresso)
-- `PouringNowList` — cafes currently serving this bean
-- `SourcedByList` — roasters sourcing this bean
+- `BeanHero` — tag (e.g. "Single Origin", "Peaberry", "Guest Origin"), name, description, origin, altitude
+- `RadarChart` (client) — interactive SVG flavor radar with 5 axes (Chocolate, Sweetness, Body, Acidity, Nutty — fixed axis set across all beans, values vary); hover tooltips on data points; animated `pulse-point` keyframe
+- `InfoCard` × 2 — Process card + Roast card, values now sourced per-bean from `lib/beans.ts` instead of hardcoded
+- `PouringNowList` — cafes currently serving this bean; each row now optionally takes a `cafeHref` and renders as a `Link` to the real `/cafe/[slug]` page (reuses the existing `hover:border-bean-origin-gold` convention — no new visual design)
+- `SourcedByList` — roasters sourcing this bean; still plain text (no roaster detail pages exist in the app, so there's nothing to link to yet — the "BUY" button remains decorative pending a product decision on what it should do)
 
 **Radar chart axes for Baba Budangiri:**
 
@@ -589,13 +599,13 @@ Home (/) → Coffee Finder (/finder) → Cafe Detail (/cafe/roastery-coffee-hous
 ### Flow B — Bean Exploration
 
 ```
-Bean Database (/bean-database) → Bean Detail (/bean-database/baba-budangiri)
+Bean Database (/bean-database) → Bean Detail (/bean-database/[slug]) → Cafe Detail (/cafe/[slug])
 ```
 1. Clicks "Bean Database" in nav
 2. Reads education hero about the roasting process
-3. Clicks featured bean "Monsoon Malabar AA" in Regional Favorites bento
-4. Lands on Baba Budangiri detail — reads origin, interacts with radar chart
-5. Notes that Blue Tokai Vasant Vihar is pouring it → cross-references with Cafe Finder
+3. Searches or browses to any of the 10 beans (Regional Favorites bento, or the Complete Index — both fully linked now)
+4. Lands on a bean detail page — reads origin, interacts with radar chart
+5. Sees which Delhi cafes are pouring it in "Pouring Now" — these are now real links; clicking one goes directly to that cafe's detail page (previously plain text, required a manual detour through Coffee Finder)
 
 ---
 
@@ -699,6 +709,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-06 | Bean Database wired end-to-end: shared `lib/beans.ts` dataset (10 beans, all linked), dynamic `/bean-database/[slug]` route, Complete Index search made functional, Regional Favorites secondary cards linked, Pouring Now list links to real cafes | — |
 | 2026-07-06 | Discovery loop wired end-to-end: shared `lib/cafes.ts` dataset (7 cafes), dynamic `/cafe/[slug]` route, Finder filters/sort/search made functional, Home hero search + trending cards linked, Passport Next Stop card linked | — |
 | 2026-07-06 | Knowledge Base document created | — |
 | Prior | Community Hub page added | — |

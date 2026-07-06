@@ -14,6 +14,7 @@ type SecondaryBean = {
   estate: string;
   name: string;
   description: string;
+  href?: string;
 };
 
 export function RegionalFavorites({
@@ -75,22 +76,33 @@ export function RegionalFavorites({
         </Link>
 
         <div className="flex flex-col gap-6">
-          {secondary.map((bean) => (
-            <div
-              key={bean.name}
-              className="group cursor-pointer rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 transition-colors hover:border-bean-origin-gold/50"
-            >
-              <span className="mb-2 block font-label-caps text-xs uppercase tracking-widest text-sage-leaf">
-                {bean.estate}
-              </span>
-              <h4 className="mb-1 font-headline-sm text-headline-sm font-semibold text-roasted-espresso">
-                {bean.name}
-              </h4>
-              <p className="line-clamp-1 font-body-md text-sm text-on-surface-variant">
-                {bean.description}
-              </p>
-            </div>
-          ))}
+          {secondary.map((bean) => {
+            const content = (
+              <>
+                <span className="mb-2 block font-label-caps text-xs uppercase tracking-widest text-sage-leaf">
+                  {bean.estate}
+                </span>
+                <h4 className="mb-1 font-headline-sm text-headline-sm font-semibold text-roasted-espresso">
+                  {bean.name}
+                </h4>
+                <p className="line-clamp-1 font-body-md text-sm text-on-surface-variant">
+                  {bean.description}
+                </p>
+              </>
+            );
+            const className =
+              "group cursor-pointer rounded-xl border border-outline-variant/30 bg-surface-container-low p-5 transition-colors hover:border-bean-origin-gold/50";
+
+            return bean.href ? (
+              <Link key={bean.name} href={bean.href} className={className}>
+                {content}
+              </Link>
+            ) : (
+              <div key={bean.name} className={className}>
+                {content}
+              </div>
+            );
+          })}
         </div>
       </div>
     </section>

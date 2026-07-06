@@ -1,6 +1,3 @@
-"use client";
-
-import { useState } from "react";
 import { Icon } from "@/components/icon";
 
 const FILTERS = [
@@ -9,9 +6,13 @@ const FILTERS = [
   { label: "Process", icon: "water_drop" },
 ];
 
-export function SearchFilterBar() {
-  const [query, setQuery] = useState("");
-
+export function SearchFilterBar({
+  query,
+  onQueryChange,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+}) {
   return (
     <section className="glass-panel sticky top-16 z-30 -mx-margin-mobile mb-gutter px-margin-mobile py-4 md:top-20 md:-mx-margin-desktop md:px-margin-desktop">
       <div className="mx-auto flex max-w-container-max flex-col items-center gap-4 md:flex-row md:justify-between">
@@ -23,7 +24,7 @@ export function SearchFilterBar() {
           <input
             type="text"
             value={query}
-            onChange={(e) => setQuery(e.target.value)}
+            onChange={(e) => onQueryChange(e.target.value)}
             placeholder="Search beans by name or flavor..."
             className="w-full rounded-t-lg border-b border-outline-variant bg-surface-container-low py-3 pl-12 pr-4 font-body-md text-roasted-espresso placeholder:text-outline-variant focus:border-roasted-espresso focus:ring-0"
           />
