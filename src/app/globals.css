@@ -160,6 +160,28 @@ body {
   border: 1px solid rgba(211, 195, 192, 0.3);
 }
 
+.masonry-grid {
+  column-count: 1;
+  column-gap: 24px;
+}
+
+@media (min-width: 768px) {
+  .masonry-grid {
+    column-count: 2;
+  }
+}
+
+@media (min-width: 1024px) {
+  .masonry-grid {
+    column-count: 3;
+  }
+}
+
+.masonry-item {
+  break-inside: avoid;
+  margin-bottom: 24px;
+}
+
 .passport-stamp {
   mask-image:
     radial-gradient(circle at 100% 50%, transparent 10%, black 11%),

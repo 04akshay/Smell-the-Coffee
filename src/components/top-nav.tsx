@@ -10,6 +10,7 @@ const links = [
   { label: "Bean Database", href: "/bean-database" },
   { label: "Brewing Guide", href: "/brewing-guide" },
   { label: "Events", href: "/events" },
+  { label: "Community", href: "/community" },
   { label: "Passport", href: "/passport" },
 ];
 
