@@ -73,6 +73,7 @@ src/
   lib/
     cafes.ts                         — Shared cafe dataset (CafeRecord[]) used by Home, Finder, and Cafe Detail
     beans.ts                         — Shared bean dataset (BeanRecord[]) used by Bean Database listing and Bean Detail; pouringSpots reference real cafe slugs from cafes.ts
+    brewing-guides.ts                — Shared brew method dataset (BrewGuideRecord[]) used by Brewing Guide listing and detail pages
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -83,8 +84,9 @@ src/
     bean-database/page.tsx            — Bean Database listing (server shell; delegates to BeanDatabaseView)
     bean-database/baba-budangiri/page.tsx — Bean detail (static route, reads from lib/beans.ts)
     bean-database/[slug]/page.tsx     — Bean detail (dynamic route for the other 9 beans; notFound() on miss)
-    brewing-guide/page.tsx            — Brewing Guide listing
-    brewing-guide/v60/page.tsx        — V60 guide detail
+    brewing-guide/page.tsx            — Brewing Guide listing (server shell; delegates to BrewingGuideView)
+    brewing-guide/v60/page.tsx        — V60 guide detail (static route, reads from lib/brewing-guides.ts)
+    brewing-guide/[slug]/page.tsx     — Guide detail (dynamic route for AeroPress, Chemex, French Press; notFound() on miss)
     events/page.tsx                   — Event Roster
     community/page.tsx                — Community Hub
     passport/page.tsx                 — Coffee Passport
@@ -101,6 +103,8 @@ src/
       cafe-card.tsx                   — Grid card with hover overlay
     bean-database/
       bean-database-view.tsx          — Client component: owns search state for the whole page body (hero through index)
+    brewing/
+      brewing-guide-view.tsx          — Client component: owns search state, renders featured + grid + empty state
     cafe/
       cafe-hero.tsx
       cafe-insights.tsx
@@ -432,29 +436,34 @@ Regional Favorites and the Complete Index are intentionally non-overlapping sets
 **Purpose:** Curated library of brewing methods — from beginner to advanced.
 
 **Components:**
-- `SearchFilterBar` — filter chips for browsing by method type
+- `BrewingGuideView` (`client`) — owns search state, filters "All Methods" by name/category/flavor tag; the Featured Guide card is always V60 (curated, unaffected by search), mirroring how Bean Database's featured bento stays static
+- `SearchFilterBar` — search input is **functional**; the 3 chip buttons (Difficulty, Flavor Profile, Time) remain unwired, same documented gap as Bean Database's Region/Roast Level/Process chips
 - `FeaturedGuide` — hero card for the highlighted guide (V60, links to detail)
-- `GuideCard` — grid card with flavor tags, difficulty badge, brew time; cards with `href` link to detail page
+- `GuideCard` — grid card with flavor tags, difficulty badge, brew time; **all 4 cards now linked**
 
-**Guide library (4 methods):**
+**Guide library (4 methods, all linked, data in `src/lib/brewing-guides.ts`):**
 
-| Method | Category | Difficulty | Time | Linked |
+| Method | Category | Difficulty | Time | Detail Page |
 |---|---|---|---|---|
-| V60 | Pour Over | Intermediate | 3:30m | `/brewing-guide/v60` ✓ |
-| AeroPress | Immersion | Easy | 2:00m | — |
-| Chemex | Pour Over | Advanced | 4:30m | — |
-| French Press | Immersion | Easy | 4:00m | — |
+| V60 | Pour Over | Intermediate | 3:30m | `/brewing-guide/v60` |
+| AeroPress | Immersion | Easy | 2:00m | `/brewing-guide/aeropress` |
+| Chemex | Pour Over | Advanced | 4:30m | `/brewing-guide/chemex` |
+| French Press | Immersion | Easy | 4:00m | `/brewing-guide/french-press` |
 
 **User flow:**
 1. User clicks "Brewing Guide" in nav → lands on `/brewing-guide`
 2. Sees featured V60 hero card; clicks "Read Guide" → goes to `/brewing-guide/v60`
-3. Or browses all 4 method cards; clicks any linked card to go to its detail
+3. Or searches/browses all 4 method cards; clicks any card to go to its detail
 
 ---
 
-### 5.7 V60 Brew Guide Detail (`/brewing-guide/v60`)
+### 5.7 Brew Guide Detail (`/brewing-guide/[slug]`)
 
-**Purpose:** Step-by-step V60 brewing tutorial with equipment list, recipe card, and a brew timer FAB.
+**Implemented slugs (4):** `v60` (static route, reads from the same `lib/brewing-guides.ts` record), plus `aeropress`, `chemex`, `french-press` (dynamic `[slug]` route via `generateStaticParams`). Same static-route-wins-on-exact-match pattern as `/cafe/[slug]` and `/bean-database/[slug]` — all three detail-page templates (`GuideHero`, `EquipmentChecklist`, `RecipeCard`, `StepTimeline`) are fully data-driven, so adding the 3 new methods was pure content, no template changes.
+
+**Known gap:** no back link / breadcrumb / related-guides rail yet — same one-way-trap gap as Cafe Detail and Bean Detail, pending a design pass. The "Start Brew Timer" button (in `StepTimeline`, desktop only) and the mobile `TimerFab` both remain decorative — a real timer needs idle/running/paused/complete states that don't exist yet, so it's out of scope for a no-new-design pass.
+
+**Purpose:** Step-by-step brewing tutorial with equipment list, recipe card, and a brew timer FAB.
 
 **Components:**
 - Hero section — title, description, brew stats (time, difficulty, yield)
@@ -470,6 +479,8 @@ Regional Favorites and the Complete Index are intentionally non-overlapping sets
 - Grind: Medium-Fine
 
 **Brew steps:** Bloom → First Pour → Second Pour → Third Pour → Drawdown (alternating sides in timeline)
+
+AeroPress, Chemex, and French Press each have their own equipment/recipe/step data in `lib/brewing-guides.ts` following the same shape — see that file for exact values rather than duplicating them here.
 
 **Step timeline implementation notes (for agents):**
 - Built as a 3-column grid (`grid-cols-[1fr_2rem_1fr]`) — not flexbox
@@ -612,14 +623,15 @@ Bean Database (/bean-database) → Bean Detail (/bean-database/[slug]) → Cafe 
 ### Flow C — Learning to Brew
 
 ```
-Brewing Guides (/brewing-guide) → V60 Detail (/brewing-guide/v60)
+Brewing Guides (/brewing-guide) → Brew Guide Detail (/brewing-guide/[slug])
 ```
 1. Clicks "Brewing Guide" in nav
-2. Reads featured guide hero (V60)
-3. Clicks "Read Guide" → full V60 step-by-step page
+2. Reads featured guide hero (V60), or searches/browses all 4 methods (all now linked)
+3. Clicks a method → full step-by-step page for that method
 4. Checks equipment list + recipe parameters
 5. Follows step timeline while brewing
-6. Taps Timer FAB to track brew time
+6. Taps Timer FAB — still decorative; a functional timer needs new UI states (idle/running/paused/complete) that don't exist yet
+7. **Known gap:** no way back to the guide index or to another method from here — pending a design pass
 
 ---
 
@@ -709,6 +721,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-06 | Brewing Guides wired end-to-end: shared `lib/brewing-guides.ts` dataset (4 methods, all linked), dynamic `/brewing-guide/[slug]` route for AeroPress/Chemex/French Press, "All Methods" search made functional | — |
 | 2026-07-06 | Bean Database wired end-to-end: shared `lib/beans.ts` dataset (10 beans, all linked), dynamic `/bean-database/[slug]` route, Complete Index search made functional, Regional Favorites secondary cards linked, Pouring Now list links to real cafes | — |
 | 2026-07-06 | Discovery loop wired end-to-end: shared `lib/cafes.ts` dataset (7 cafes), dynamic `/cafe/[slug]` route, Finder filters/sort/search made functional, Home hero search + trending cards linked, Passport Next Stop card linked | — |
 | 2026-07-06 | Knowledge Base document created | — |

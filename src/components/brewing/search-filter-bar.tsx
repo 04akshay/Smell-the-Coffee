@@ -1,13 +1,14 @@
-"use client";
-
-import { useState } from "react";
 import { Icon } from "@/components/icon";
 
 const FILTERS = ["Difficulty", "Flavor Profile", "Time"];
 
-export function SearchFilterBar() {
-  const [query, setQuery] = useState("");
-
+export function SearchFilterBar({
+  query,
+  onQueryChange,
+}: {
+  query: string;
+  onQueryChange: (value: string) => void;
+}) {
   return (
     <div className="mb-gutter flex flex-col items-center gap-4 rounded-xl border border-tertiary/10 bg-oat-milk p-4 md:flex-row">
       <div className="relative w-full md:w-1/3">
@@ -18,7 +19,7 @@ export function SearchFilterBar() {
         <input
           type="text"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => onQueryChange(e.target.value)}
           placeholder="Search methods..."
           className="w-full rounded-lg border-none bg-surface-container-lowest py-2 pl-10 pr-4 font-body-md text-on-surface focus:ring-1 focus:ring-sage-leaf"
         />
