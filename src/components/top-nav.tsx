@@ -30,7 +30,7 @@ export function TopNav() {
             <div className="relative w-full">
               <input
                 type="text"
-                placeholder="Search origins, cafes..."
+                placeholder="Search"
                 className="w-full rounded-t-lg border-none border-b-2 border-outline-variant bg-oat-milk px-4 py-2 font-body-md text-body-md placeholder-on-tertiary-container transition-colors focus:border-sage-leaf focus:ring-0"
               />
               <Icon
