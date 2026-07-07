@@ -1,8 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { CafeCard, type DirectoryCafe } from "@/components/finder/cafe-card";
+import { FinderEmptyState } from "@/components/finder/empty-state";
 import {
   SidebarFilters,
   FILTER_GROUPS,
@@ -45,10 +46,21 @@ function matchesGroup(cafe: CafeRecord, groupTitle: string, options: Set<string>
 }
 
 export function FinderView({ cafes }: { cafes: CafeRecord[] }) {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const query = searchParams.get("q")?.trim().toLowerCase() ?? "";
   const [selected, setSelected] = useState<SelectedFilters>({});
   const [sort, setSort] = useState<SortOption>("Newest Added");
+
+  function clearAll() {
+    setSelected({});
+    router.push("/finder");
+  }
+
+  function quickVibe(term: string) {
+    setSelected({});
+    router.push(`/finder?q=${encodeURIComponent(term)}`);
+  }
 
   function toggle(groupTitle: string, option: string) {
     setSelected((prev) => {
@@ -138,14 +150,7 @@ export function FinderView({ cafes }: { cafes: CafeRecord[] }) {
             ))}
           </div>
         ) : (
-          <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed border-tertiary/20 py-24 text-center">
-            <p className="font-headline-sm text-headline-sm font-semibold text-roasted-espresso">
-              No cafes match these filters
-            </p>
-            <p className="font-body-md text-body-md text-on-surface-variant">
-              Try clearing a filter or two.
-            </p>
-          </div>
+          <FinderEmptyState onClearAll={clearAll} onQuickVibe={quickVibe} />
         )}
       </div>
     </main>

@@ -99,6 +99,7 @@ src/
     trending-cafes.tsx                — Reads featured/small cafes from lib/cafes.ts, all linked
     finder/
       finder-view.tsx                 — Client component: owns filter/sort/search state, renders grid + empty state
+      empty-state.tsx                 — FinderEmptyState: zero-results screen (illustration, tilt interaction, reset CTAs, quick-vibe chips)
       sidebar-filters.tsx             — Checkbox filter groups (controlled by finder-view, client)
       cafe-card.tsx                   — Grid card with hover overlay
     bean-database/
@@ -204,6 +205,7 @@ Fonts applied via Tailwind utility classes — always pair the `font-*` class (w
 | `.radar-point` | Pulsing data point on the flavor radar chart |
 | `.hide-scrollbar` | Hide scrollbar while preserving scroll |
 | `.noise-bg` | Subtle noise texture overlay (Home page) |
+| `.coffee-pattern` | Repeating coffee-bean SVG pattern overlay on `surface`, used behind Finder's empty state |
 
 ### Icons
 
@@ -303,7 +305,9 @@ No option checked in a group = that group doesn't filter. Across groups the filt
 
 **Search (`?q=`):** Matches cafe name, roaster, or tags (case-insensitive substring). Populated by `HeroSearch` on Home; the header shows `Showing N of 7 Cafes ... for "query"` and a "Clear filters" action once any filter/search is active.
 
-**Empty state:** "No cafes match these filters" + "Try clearing a filter or two" — shown when the combined filter/search/sort yields zero cafes. Built from existing typography tokens only (no new visual pattern).
+**Empty state (`FinderEmptyState`, `src/components/finder/empty-state.tsx`):** shown when the combined filter/search/sort yields zero cafes. Implements the "Coffee Finder - No Results" Stitch design — spilled-cup illustration with a mouse-tilt micro-interaction, "REFILL NEEDED" rotated badge, "Looks like we're out of beans." headline, and two actions:
+- **Clear All Filters** / **Browse All Cafes** — both reset sidebar filters and the `q` param (functionally identical, matching the mockup's two-button framing of "reset" vs. "just browse")
+- **Popular vibe chips** (Laptop Friendly, Quiet Corner, Outdoor Seating, Quick Fix) — each clears filters and sets `q` to a term that matches real cafe tags, so every chip returns real results rather than being decorative. "Outdoor Seating" and "Quick Fix" didn't correspond to any existing tag, so `lib/cafes.ts` gained those two tags on Perch Wine & Coffee Bar and The Artful Baker respectively to back them.
 
 **TopNav behavior:** Shows inline search input when `pathname === '/finder'`. **Known gap:** this inline input is still not wired to the `q` param — wiring it requires either lifting shared state via URL (would need to wrap the layout-level `TopNav` in a `Suspense` boundary for `useSearchParams`, which is a broader architectural change) or a different state-sharing approach. Deferred; use the Home hero search or type directly in the URL (`/finder?q=...`) in the meantime.
 
@@ -677,6 +681,10 @@ Wrapper for Material Symbols. Use `filled` prop for filled variant. Control size
 
 Pass `href` to make the card a `<Link>`. Without `href`, renders a non-navigable `<div>`. Hover reveals "View Profile" overlay and scales image.
 
+### `<FinderEmptyState onClearAll={...} onQuickVibe={...} />`
+
+`onClearAll(): void` resets both sidebar filters and the URL search param. `onQuickVibe(query: string): void` does the same then sets `q` to the given term — the term must match a real tag/name/roaster substring in `lib/cafes.ts` or the chip becomes a dead end again. Do not add a quick-vibe chip without first confirming (or adding) matching cafe data.
+
 ### `<RadarChart axes={[...]} />`
 
 Client component. Each axis: `{ label: string, value: number (0–100), description: string }`. Geometry is computed — do not hardcode SVG coordinates.
@@ -721,6 +729,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-08 | Finder empty state implemented from Stitch design ("Coffee Finder - No Results"): `FinderEmptyState` component, `.coffee-pattern` utility, functional quick-vibe chips (added "Outdoor Seating" and "Quick Fix" tags to back 2 of them) | — |
 | 2026-07-06 | Brewing Guides wired end-to-end: shared `lib/brewing-guides.ts` dataset (4 methods, all linked), dynamic `/brewing-guide/[slug]` route for AeroPress/Chemex/French Press, "All Methods" search made functional | — |
 | 2026-07-06 | Bean Database wired end-to-end: shared `lib/beans.ts` dataset (10 beans, all linked), dynamic `/bean-database/[slug]` route, Complete Index search made functional, Regional Favorites secondary cards linked, Pouring Now list links to real cafes | — |
 | 2026-07-06 | Discovery loop wired end-to-end: shared `lib/cafes.ts` dataset (7 cafes), dynamic `/cafe/[slug]` route, Finder filters/sort/search made functional, Home hero search + trending cards linked, Passport Next Stop card linked | — |
