@@ -137,6 +137,35 @@ body {
   box-shadow: 0 4px 20px rgba(62, 39, 35, 0.15);
 }
 
+.brew-pulse-ring {
+  animation: brew-pulse-ring 2.2s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes brew-pulse-ring {
+  0% {
+    box-shadow: 0 0 0 0 rgba(198, 166, 100, 0.45);
+  }
+  70% {
+    box-shadow: 0 0 0 14px rgba(198, 166, 100, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(198, 166, 100, 0);
+  }
+}
+
+.brew-glow {
+  animation: brew-glow 2s ease-in-out infinite alternate;
+}
+
+@keyframes brew-glow {
+  0% {
+    filter: drop-shadow(0 0 8px rgba(198, 166, 100, 0.4));
+  }
+  100% {
+    filter: drop-shadow(0 0 22px rgba(198, 166, 100, 0.8));
+  }
+}
+
 .map-texture {
   background-image: radial-gradient(var(--color-outline-variant) 1px, transparent 1px);
   background-size: 16px 16px;

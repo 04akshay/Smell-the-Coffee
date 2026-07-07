@@ -7,14 +7,17 @@ type Step = {
   active?: boolean;
 };
 
-export function StepTimeline({ steps }: { steps: Step[] }) {
+export function StepTimeline({ steps, onStart }: { steps: Step[]; onStart?: () => void }) {
   return (
     <section className="relative rounded-lg border border-tertiary/10 bg-cream-foam p-6 md:p-8">
       <div className="hidden items-center justify-between md:flex">
         <h2 className="mb-8 flex items-center gap-2 font-headline-md text-headline-md font-semibold text-roasted-espresso">
           <Icon name="water_drop" /> Step-by-Step Ritual
         </h2>
-        <button className="timer-glow mb-8 flex items-center gap-2 rounded-lg bg-primary-container px-6 py-3 font-label-md text-label-md text-on-primary-container transition-colors hover:bg-roasted-espresso hover:text-cream-foam">
+        <button
+          onClick={onStart}
+          className="timer-glow mb-8 flex items-center gap-2 rounded-lg bg-primary-container px-6 py-3 font-label-md text-label-md text-on-primary-container transition-colors hover:bg-roasted-espresso hover:text-cream-foam"
+        >
           <Icon name="play_circle" /> Start Brew Timer
         </button>
       </div>

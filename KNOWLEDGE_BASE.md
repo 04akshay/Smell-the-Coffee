@@ -73,7 +73,9 @@ src/
   lib/
     cafes.ts                         — Shared cafe dataset (CafeRecord[]) used by Home, Finder, and Cafe Detail
     beans.ts                         — Shared bean dataset (BeanRecord[]) used by Bean Database listing and Bean Detail; pouringSpots reference real cafe slugs from cafes.ts
-    brewing-guides.ts                — Shared brew method dataset (BrewGuideRecord[]) used by Brewing Guide listing and detail pages
+    brewing-guides.ts                — Shared brew method dataset (BrewGuideRecord[]); each step has targetGrams, each recipe has flowNote
+    brew-timer.ts                    — Pure timing helpers: parses step timeLabels into {startSec, endSec} boundaries
+    brew-log.ts                      — localStorage-backed brew completion count (getBrewCount, logBrewCompletion, subscribeToBrewLog)
     passport-stamps.ts               — localStorage-backed stamp persistence (isCafeStamped, addCafeStamp, subscribeToStamps)
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
@@ -129,7 +131,10 @@ src/
       search-filter-bar.tsx
       featured-guide.tsx
       guide-card.tsx
-      step-timeline.tsx               — 3-column CSS grid timeline
+      step-timeline.tsx               — 3-column CSS grid timeline; "Start Brew Timer" button takes onStart
+      timer-fab.tsx                   — Mobile FAB; takes onClick
+      brew-timer-launcher.tsx         — Client; owns open state for the timer overlay
+      brew-timer-overlay.tsx          — Client; running/paused/complete full-screen timer
     events/
       featured-event.tsx
       session-card.tsx
@@ -211,6 +216,8 @@ Fonts applied via Tailwind utility classes — always pair the `font-*` class (w
 | `.map-texture` | Dotted radial-gradient pattern, used behind the pulsing location marker in the Stamp flow's Verify Location step |
 | `.holographic-shimmer` | Animated gold/oat-milk gradient sweep, used on the Digital Stamp Ritual seal once tapped |
 | `.confetti-bean` / `@keyframes bean-float` | Falling bean particles on the Passport Stamped success screen |
+| `.brew-pulse-ring` | Pulsing box-shadow ring on the Brew Timer's active-phase dot and outer disc |
+| `.brew-glow` | Alternating drop-shadow glow on the Brew Timer's completion checkmark |
 
 ### Icons
 
@@ -478,16 +485,26 @@ Regional Favorites and the Complete Index are intentionally non-overlapping sets
 
 **Implemented slugs (4):** `v60` (static route, reads from the same `lib/brewing-guides.ts` record), plus `aeropress`, `chemex`, `french-press` (dynamic `[slug]` route via `generateStaticParams`). Same static-route-wins-on-exact-match pattern as `/cafe/[slug]` and `/bean-database/[slug]` — all three detail-page templates (`GuideHero`, `EquipmentChecklist`, `RecipeCard`, `StepTimeline`) are fully data-driven, so adding the 3 new methods was pure content, no template changes.
 
-**Known gap:** no back link / breadcrumb / related-guides rail yet — same one-way-trap gap as Cafe Detail and Bean Detail, pending a design pass. The "Start Brew Timer" button (in `StepTimeline`, desktop only) and the mobile `TimerFab` both remain decorative — a real timer needs idle/running/paused/complete states that don't exist yet, so it's out of scope for a no-new-design pass.
+**Known gap:** no back link / breadcrumb / related-guides rail yet — same one-way-trap gap as Cafe Detail and Bean Detail, pending a design pass.
 
-**Purpose:** Step-by-step brewing tutorial with equipment list, recipe card, and a brew timer FAB.
+**Purpose:** Step-by-step brewing tutorial with equipment list, recipe card, and a real brew timer.
 
 **Components:**
 - Hero section — title, description, brew stats (time, difficulty, yield)
 - Equipment checklist — list of required gear
 - Recipe card — dose, water, temperature, grind size parameters
-- `StepTimeline` — alternating left/right step layout using a 3-column CSS grid (`1fr / 2rem / 1fr`)
-- Timer FAB — floating action button (bottom-right) with `timer-glow` pulse animation
+- `BrewTimerLauncher` (`client`, `src/components/brewing/brew-timer-launcher.tsx`) — owns `open` state; renders `StepTimeline` (with a wired `onStart`), `TimerFab` (wired `onClick`), and `BrewTimerOverlay`
+- `StepTimeline` — alternating left/right step layout using a 3-column CSS grid (`1fr / 2rem / 1fr`); "Start Brew Timer" button now takes an `onStart` prop
+- `TimerFab` — floating action button (bottom-right, mobile only) with `timer-glow` pulse; now takes an `onClick` prop
+
+**Brew Timer (`BrewTimerOverlay`, `src/components/brewing/brew-timer-overlay.tsx`, client):** full-screen overlay implementing the Stitch "Brewing Guide Paused/Active/Complete" designs — a real countdown, not a static mockup.
+- **Running** — circular SVG progress ring (`strokeDashoffset` animated via Framer Motion) around an up-counting elapsed timer; left panel lists all phases with done/active/pending states plus a "Current Target" card (`step.targetGrams` / `recipe.flowNote`); controls are `replay_10` / pause / `forward_10`
+- **Paused** — same disc, frozen; controls switch to `skip_previous` / play / `skip_next` (jumps to phase boundaries, not ±10s) — this is a deliberate difference from the running controls, matching the two source mockups exactly rather than flattening to one generic control set
+- **Complete** — all phases checked, final time, glowing `verified` badge (`.brew-glow`), "+50 XP", and a mastery-loop line ("Brewed N of 3 times — X more for the {method} Explorer badge") wired to a real per-guide completion count — the first concrete implementation of the design brief's "3 completed brews = method badge" mastery loop (§5)
+- Timing engine lives in `src/lib/brew-timer.ts` (pure functions: parses `"M:SS - Phase"` step labels into `{startSec, endSec}` boundaries — no new data fields needed beyond `targetGrams`)
+- Completions persist per-guide in `localStorage` via `src/lib/brew-log.ts` (`getBrewCount`, `logBrewCompletion`, `subscribeToBrewLog` — same pattern as `passport-stamps.ts`)
+- The interval uses `performance.now()` deltas (not naive tick counting) to avoid drift; ambient pulsing/glow animations are skipped under `useReducedMotion()`
+- **Agent note:** `BrewTimerOverlay` fully unmounts when closed (`{open && <BrewTimerModal key={guide.slug} .../>}`) rather than persisting hidden state — this is what lets every session start fresh from `elapsedSec = 0` with plain `useState` initializers, with no reset-on-reopen effect needed (unlike `PassportStampFlow`, which stays mounted for its exit animation and needs the render-time reset pattern instead)
 
 **V60 recipe parameters:**
 - Coffee dose: 15g
@@ -508,8 +525,8 @@ AeroPress, Chemex, and French Press each have their own equipment/recipe/step da
 1. User arrives from Brewing Guide listing
 2. Reads hero + recipe card
 3. Checks equipment list
-4. Follows alternating step timeline
-5. Taps Timer FAB to start a brew timer (UI present; timer logic is future work)
+4. Follows alternating step timeline, or taps "Start Brew Timer" (desktop) / the Timer FAB (mobile) to open the real Brew Timer overlay
+5. Runs through the timer's running → paused → complete states; completion is logged toward that method's mastery badge (3 brews)
 
 ---
 
@@ -646,9 +663,9 @@ Brewing Guides (/brewing-guide) → Brew Guide Detail (/brewing-guide/[slug])
 2. Reads featured guide hero (V60), or searches/browses all 4 methods (all now linked)
 3. Clicks a method → full step-by-step page for that method
 4. Checks equipment list + recipe parameters
-5. Follows step timeline while brewing
-6. Taps Timer FAB — still decorative; a functional timer needs new UI states (idle/running/paused/complete) that don't exist yet
-7. **Known gap:** no way back to the guide index or to another method from here — pending a design pass
+5. Follows step timeline, or starts the real Brew Timer overlay to run the ritual with a live countdown, per-phase targets, and pause/skip controls
+6. Finishes the brew → Complete screen shows mastery-loop progress ("Brewed N of 3 times...") and offers "Log to Passport" / "Share Vibe"
+7. **Known gap:** no way back to the guide index or to another method from here — pending a design pass. Also, brew completions are logged (`lib/brew-log.ts`) but — like Passport stamps — don't yet surface anywhere on `/passport` itself (still hardcoded mock data)
 
 ---
 
@@ -747,6 +764,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-08 | Brew Timer implemented from Stitch designs (Paused, Active/Running, Complete): `BrewTimerOverlay` with a real countdown (`lib/brew-timer.ts`), wired to "Start Brew Timer" and the Timer FAB on all 4 brewing guides; `lib/brew-log.ts` for completion tracking; `targetGrams`/`flowNote` added to `lib/brewing-guides.ts` | — |
 | 2026-07-08 | Passport Stamp flow implemented from Stitch designs (Verify Location, Digital Stamp Ritual, Passport Stamped): `PassportStampFlow` modal wired to every cafe's "Stamp My Passport" button, `lib/passport-stamps.ts` for localStorage persistence, `badgeName` added to every `CafeRecord` | — |
 | 2026-07-08 | Finder empty state implemented from Stitch design ("Coffee Finder - No Results"): `FinderEmptyState` component, `.coffee-pattern` utility, functional quick-vibe chips (added "Outdoor Seating" and "Quick Fix" tags to back 2 of them) | — |
 | 2026-07-06 | Brewing Guides wired end-to-end: shared `lib/brewing-guides.ts` dataset (4 methods, all linked), dynamic `/brewing-guide/[slug]` route for AeroPress/Chemex/French Press, "All Methods" search made functional | — |

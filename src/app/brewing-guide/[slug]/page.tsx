@@ -3,8 +3,7 @@ import Image from "next/image";
 import { GuideHero } from "@/components/brewing/guide-hero";
 import { EquipmentChecklist } from "@/components/brewing/equipment-checklist";
 import { RecipeCard } from "@/components/brewing/recipe-card";
-import { StepTimeline } from "@/components/brewing/step-timeline";
-import { TimerFab } from "@/components/brewing/timer-fab";
+import { BrewTimerLauncher } from "@/components/brewing/brew-timer-launcher";
 import { brewGuides, getBrewGuideBySlug } from "@/lib/brewing-guides";
 
 export function generateStaticParams() {
@@ -56,11 +55,9 @@ export default async function BrewGuideDetailPage({
         </div>
 
         <div className="md:col-span-8">
-          <StepTimeline steps={guide.steps} />
+          <BrewTimerLauncher guide={guide} />
         </div>
       </div>
-
-      <TimerFab />
     </main>
   );
 }
