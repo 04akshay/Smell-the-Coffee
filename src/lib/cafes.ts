@@ -1,5 +1,6 @@
 export type CafeRecord = {
   slug: string;
+  badgeName: string;
   name: string;
   region: string;
   neighborhood: string;
@@ -24,6 +25,7 @@ export type CafeRecord = {
 export const cafes: CafeRecord[] = [
   {
     slug: "roastery-coffee-house",
+    badgeName: "Botanical Brew",
     name: "Roastery Coffee House",
     region: "Delhi, India",
     neighborhood: "Khan Market",
@@ -81,6 +83,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "blue-tokai-safdarjung",
+    badgeName: "Roaster's Row",
     name: "Blue Tokai Safdarjung",
     region: "Delhi, India",
     neighborhood: "Safdarjung",
@@ -138,6 +141,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "perch-wine-coffee-bar",
+    badgeName: "Golden Hour Pour",
     name: "Perch Wine & Coffee Bar",
     region: "Delhi, India",
     neighborhood: "Vasant Vihar",
@@ -195,6 +199,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "subko-cacao-mill",
+    badgeName: "Cacao Alchemist",
     name: "Subko Cacao Mill",
     region: "Delhi, India",
     neighborhood: "Hauz Khas",
@@ -252,6 +257,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "quick-brown-fox",
+    badgeName: "Quiet Chapter",
     name: "Quick Brown Fox",
     region: "Delhi, India",
     neighborhood: "Dhan Mill",
@@ -309,6 +315,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "devans-south-indian",
+    badgeName: "Heritage Dabara",
     name: "Devan's South Indian",
     region: "Delhi, India",
     neighborhood: "Lodhi Colony",
@@ -366,6 +373,7 @@ export const cafes: CafeRecord[] = [
   },
   {
     slug: "the-artful-baker",
+    badgeName: "Crumb & Crema",
     name: "The Artful Baker",
     region: "Delhi, India",
     neighborhood: "Khan Market",

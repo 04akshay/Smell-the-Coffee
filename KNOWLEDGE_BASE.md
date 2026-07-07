@@ -74,6 +74,7 @@ src/
     cafes.ts                         — Shared cafe dataset (CafeRecord[]) used by Home, Finder, and Cafe Detail
     beans.ts                         — Shared bean dataset (BeanRecord[]) used by Bean Database listing and Bean Detail; pouringSpots reference real cafe slugs from cafes.ts
     brewing-guides.ts                — Shared brew method dataset (BrewGuideRecord[]) used by Brewing Guide listing and detail pages
+    passport-stamps.ts               — localStorage-backed stamp persistence (isCafeStamped, addCafeStamp, subscribeToStamps)
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -110,7 +111,8 @@ src/
       cafe-hero.tsx
       cafe-insights.tsx
       cafe-gallery.tsx
-      cafe-location-passport.tsx
+      cafe-location-passport.tsx       — Client; renders Stamp CTA + mounts PassportStampFlow
+      passport-stamp-flow.tsx          — Client; Verify Location → Digital Stamp Ritual → Passport Stamped modal
     bean-database/
       education-hero.tsx
       search-filter-bar.tsx
@@ -206,6 +208,9 @@ Fonts applied via Tailwind utility classes — always pair the `font-*` class (w
 | `.hide-scrollbar` | Hide scrollbar while preserving scroll |
 | `.noise-bg` | Subtle noise texture overlay (Home page) |
 | `.coffee-pattern` | Repeating coffee-bean SVG pattern overlay on `surface`, used behind Finder's empty state |
+| `.map-texture` | Dotted radial-gradient pattern, used behind the pulsing location marker in the Stamp flow's Verify Location step |
+| `.holographic-shimmer` | Animated gold/oat-milk gradient sweep, used on the Digital Stamp Ritual seal once tapped |
+| `.confetti-bean` / `@keyframes bean-float` | Falling bean particles on the Passport Stamped success screen |
 
 ### Icons
 
@@ -333,7 +338,14 @@ No option checked in a group = that group doesn't filter. Across groups the filt
 - `CafeHero` — hero image, rating badge, name, description
 - `CafeInsights` — 3-panel bento: Vibe (tags), Utility (Wi-Fi/plugs/seating), Coffee (origins/signatures)
 - `CafeGallery` — 5-image gallery grid with "View all X photos" affordance
-- `CafeLocationPassport` — static map image, address, check-in count, "Stamp Passport" CTA
+- `CafeLocationPassport` (`client`) — map image, address, check-in count, and the "Stamp My Passport" CTA. Button reflects stamped state (via `useSyncExternalStore` over `lib/passport-stamps.ts`, localStorage-backed) and opens `PassportStampFlow` on click.
+
+**Passport Stamp flow (`PassportStampFlow`, `src/components/cafe/passport-stamp-flow.tsx`, client):** a 3-step modal implementing the Stitch "Digital Stamp Ritual" designs, triggered from any cafe's "Stamp My Passport" button. Uses Framer Motion (`AnimatePresence`, `useReducedMotion`) instead of the mockups' raw WebGL shaders — this codebase has no WebGL anywhere else and the design brief caps the mobile animation budget, so shaders would have been inconsistent and risky. All motion-heavy pieces (confetti, ping ripple, floating idle animation) are gated behind `useReducedMotion()`.
+- **Verify Location** — themed/flavor-only location check ("Syncing Vibe Coordinates..."), not a real `navigator.geolocation` call — the copy is intentionally playful ("vibe coordinates"), not a literal geofence
+- **Digital Stamp Ritual** — tap the seal (holographic shimmer via a CSS keyframe, `.holographic-shimmer` in `globals.css`) to arm "Confirm Impression", then a brief "Authenticating..." step
+- **Passport Stamped** — cafe-specific badge (`cafe.badgeName`), confetti (CSS `.confetti-bean` / `@keyframes bean-float`, generated in an effect via `setTimeout(fn, 0)` — `Math.random` cannot be called during render under this project's React Compiler purity rule), "View My Passport" (routes to `/passport`), "Share Your Vibe" (`navigator.share` with a clipboard-copy fallback)
+- Stamps persist per-cafe in `localStorage` (`lib/passport-stamps.ts`); `addCafeStamp` dispatches a custom event so any mounted `CafeLocationPassport` picks up the change immediately, cross-tab included (also listens for the native `storage` event)
+- **Agent note:** this component intentionally avoids `useEffect` + synchronous `setState` for both the "reset step when reopened" and "read stamped state" cases — the project's lint config (`react-hooks/set-state-in-effect`, `react-hooks/purity`) flags those. Reset-on-reopen is done by comparing against previous `open` in a state variable and calling `setState` directly during render (React's documented "adjusting state when a prop changes" pattern); stamped-state reads use `useSyncExternalStore`, not an effect.
 
 **Data for Roastery Coffee House:**
 - Rating: 4.8 ★
@@ -349,7 +361,8 @@ No option checked in a group = that group doesn't filter. Across groups the filt
 1. User clicks "View Profile" on Roastery Coffee House card in `/finder`
 2. Lands on `/cafe/roastery-coffee-house`
 3. Scrolls through hero → insights bento → gallery → location + passport stamp section
-4. "Stamp Passport" CTA (links to Passport feature — not yet wired)
+4. Clicks "Stamp My Passport" → Verify Location → Digital Stamp Ritual → Passport Stamped success screen (all 4 cafes/beans-agnostic; works identically for any of the 7 cafes since `CafeLocationPassport` is shared)
+5. Button now reads "Passport Stamped" on this and future visits (persisted in `localStorage`)
 
 ---
 
@@ -662,7 +675,8 @@ Passport (/passport) → Coffee Finder (/finder) → Cafe Detail (/cafe/roastery
 3. Checks active trail progress (Eastside Espresso Run: 4/5)
 4. Sees "Next Stop" recommendation (Devan's South Indian Filter) — now a real `Link`
 5. Clicks it → goes directly to `/cafe/devans-south-indian` (no longer requires a manual detour through Coffee Finder)
-6. Visits cafe detail to plan visit; "Stamp My Passport" CTA still not wired — pending a confirm/success design
+6. Visits cafe detail, clicks "Stamp My Passport" → completes the Verify Location → Digital Stamp Ritual → Passport Stamped flow
+7. **Known gap:** the stamp is persisted in `localStorage` only — the actual Trophy Case / stats / trail progress on `/passport` are still hardcoded mock data and don't yet reflect real stamps. Wiring that up is a larger Passport-page data-model change, out of scope for this pass.
 
 ---
 
@@ -684,6 +698,10 @@ Pass `href` to make the card a `<Link>`. Without `href`, renders a non-navigable
 ### `<FinderEmptyState onClearAll={...} onQuickVibe={...} />`
 
 `onClearAll(): void` resets both sidebar filters and the URL search param. `onQuickVibe(query: string): void` does the same then sets `q` to the given term — the term must match a real tag/name/roaster substring in `lib/cafes.ts` or the chip becomes a dead end again. Do not add a quick-vibe chip without first confirming (or adding) matching cafe data.
+
+### `<PassportStampFlow open cafeSlug cafeName neighborhood badgeName onClose />`
+
+Self-contained modal; `open` controls mount/unmount via `AnimatePresence`. Resets its internal step to `"verify"` whenever `open` flips `false → true` — this is done by comparing against a `wasOpen` state variable and calling `setState` directly in the render body (not in a `useEffect`), since this project's lint config flags synchronous `setState` inside effects. Calls `addCafeStamp(cafeSlug)` itself; callers don't need to persist anything. Any new step or async data added here should generate randomness/impure values inside an effect or event handler, never in render/`useMemo` — the `react-hooks/purity` rule will fail the build otherwise (see `Confetti`'s `generateBeans()` for the pattern).
 
 ### `<RadarChart axes={[...]} />`
 
@@ -729,6 +747,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-08 | Passport Stamp flow implemented from Stitch designs (Verify Location, Digital Stamp Ritual, Passport Stamped): `PassportStampFlow` modal wired to every cafe's "Stamp My Passport" button, `lib/passport-stamps.ts` for localStorage persistence, `badgeName` added to every `CafeRecord` | — |
 | 2026-07-08 | Finder empty state implemented from Stitch design ("Coffee Finder - No Results"): `FinderEmptyState` component, `.coffee-pattern` utility, functional quick-vibe chips (added "Outdoor Seating" and "Quick Fix" tags to back 2 of them) | — |
 | 2026-07-06 | Brewing Guides wired end-to-end: shared `lib/brewing-guides.ts` dataset (4 methods, all linked), dynamic `/brewing-guide/[slug]` route for AeroPress/Chemex/French Press, "All Methods" search made functional | — |
 | 2026-07-06 | Bean Database wired end-to-end: shared `lib/beans.ts` dataset (10 beans, all linked), dynamic `/bean-database/[slug]` route, Complete Index search made functional, Regional Favorites secondary cards linked, Pouring Now list links to real cafes | — |

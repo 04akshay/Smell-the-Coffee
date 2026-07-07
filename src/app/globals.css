@@ -137,6 +137,55 @@ body {
   box-shadow: 0 4px 20px rgba(62, 39, 35, 0.15);
 }
 
+.map-texture {
+  background-image: radial-gradient(var(--color-outline-variant) 1px, transparent 1px);
+  background-size: 16px 16px;
+}
+
+.holographic-shimmer {
+  background: linear-gradient(
+    120deg,
+    var(--color-oat-milk) 0%,
+    var(--color-bean-origin-gold) 45%,
+    var(--color-oat-milk) 100%
+  );
+  background-size: 200% 100%;
+  animation: holographic-shimmer 4s ease-in-out infinite;
+}
+
+@keyframes holographic-shimmer {
+  0% {
+    background-position: 0% 0%;
+  }
+  100% {
+    background-position: 200% 0%;
+  }
+}
+
+@keyframes bean-float {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(360deg);
+    opacity: 0;
+  }
+}
+
+.confetti-bean {
+  position: absolute;
+  top: -20px;
+  pointer-events: none;
+  animation: bean-float linear forwards;
+}
+
 @keyframes pulse-point {
   0% {
     transform: scale(1);

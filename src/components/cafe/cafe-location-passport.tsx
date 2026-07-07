@@ -1,15 +1,39 @@
+"use client";
+
+import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { Icon } from "@/components/icon";
+import { PassportStampFlow } from "@/components/cafe/passport-stamp-flow";
+import { isCafeStamped, subscribeToStamps } from "@/lib/passport-stamps";
+
+function getServerSnapshot() {
+  return false;
+}
 
 export function CafeLocationPassport({
   mapImage,
   address,
   checkInCount,
+  cafeSlug,
+  cafeName,
+  neighborhood,
+  badgeName,
 }: {
   mapImage: string;
   address: string;
   checkInCount: number;
+  cafeSlug: string;
+  cafeName: string;
+  neighborhood: string;
+  badgeName: string;
 }) {
+  const [open, setOpen] = useState(false);
+  const stamped = useSyncExternalStore(
+    subscribeToStamps,
+    () => isCafeStamped(cafeSlug),
+    getServerSnapshot
+  );
+
   return (
     <section className="grid grid-cols-1 items-start gap-gutter md:grid-cols-2">
       <div className="overflow-hidden rounded-xl border border-tertiary/10 bg-surface-bright shadow-sm">
@@ -46,12 +70,28 @@ export function CafeLocationPassport({
             digital stamp for your profile and unlock tasting notes for their
             seasonal beans.
           </p>
-          <button className="flex w-full items-center justify-center gap-2 rounded-lg bg-roasted-espresso px-6 py-4 font-label-md text-label-md text-cream-foam shadow-[0_4px_24px_rgba(62,39,35,0.08)] transition-colors hover:bg-tertiary-container">
-            <Icon name="check_circle" />
-            Stamp My Passport
+          <button
+            onClick={() => setOpen(true)}
+            className={
+              stamped
+                ? "flex w-full items-center justify-center gap-2 rounded-lg border-2 border-sage-leaf bg-transparent px-6 py-4 font-label-md text-label-md text-sage-leaf transition-colors hover:bg-sage-leaf/10"
+                : "flex w-full items-center justify-center gap-2 rounded-lg bg-roasted-espresso px-6 py-4 font-label-md text-label-md text-cream-foam shadow-[0_4px_24px_rgba(62,39,35,0.08)] transition-colors hover:bg-tertiary-container"
+            }
+          >
+            <Icon name="check_circle" filled={stamped} />
+            {stamped ? "Passport Stamped" : "Stamp My Passport"}
           </button>
         </div>
       </div>
+
+      <PassportStampFlow
+        open={open}
+        onClose={() => setOpen(false)}
+        cafeSlug={cafeSlug}
+        cafeName={cafeName}
+        neighborhood={neighborhood}
+        badgeName={badgeName}
+      />
     </section>
   );
 }

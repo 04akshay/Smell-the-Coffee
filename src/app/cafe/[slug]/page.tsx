@@ -38,6 +38,10 @@ export default async function CafeDetailPage({
         mapImage={cafe.mapImage}
         address={cafe.address}
         checkInCount={cafe.checkInCount}
+        cafeSlug={cafe.slug}
+        cafeName={cafe.name}
+        neighborhood={cafe.neighborhood}
+        badgeName={cafe.badgeName}
       />
     </main>
   );
