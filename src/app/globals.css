@@ -166,6 +166,30 @@ body {
   }
 }
 
+.event-ring-1 {
+  position: absolute;
+  top: -10%;
+  right: -5%;
+  width: 50vw;
+  height: 50vw;
+  border: 2px solid rgba(198, 166, 100, 0.1);
+  border-radius: 43% 57% 65% 35% / 40% 45% 55% 60%;
+  transform: rotate(20deg);
+  pointer-events: none;
+}
+
+.event-ring-2 {
+  position: absolute;
+  top: 40%;
+  left: -15%;
+  width: 60vw;
+  height: 60vw;
+  border: 1px solid rgba(44, 27, 24, 0.05);
+  border-radius: 54% 46% 39% 61% / 55% 42% 58% 45%;
+  transform: rotate(-15deg);
+  pointer-events: none;
+}
+
 .map-texture {
   background-image: radial-gradient(var(--color-outline-variant) 1px, transparent 1px);
   background-size: 16px 16px;

@@ -119,9 +119,13 @@ function BrewTimerModal({
       }
     }
     if (typeof navigator !== "undefined" && navigator.clipboard) {
-      await navigator.clipboard.writeText(url);
-      setShareState("copied");
-      setTimeout(() => setShareState("idle"), 2000);
+      try {
+        await navigator.clipboard.writeText(url);
+        setShareState("copied");
+        setTimeout(() => setShareState("idle"), 2000);
+      } catch {
+        // clipboard permission denied or unavailable; leave button state unchanged
+      }
     }
   }
 

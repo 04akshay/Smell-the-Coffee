@@ -1,74 +1,110 @@
+"use client";
+
+import { useSyncExternalStore } from "react";
 import Image from "next/image";
+import { motion } from "framer-motion";
 import { Icon } from "@/components/icon";
+import type { EventRecord } from "@/lib/events";
+import { getRsvpStatus, setRsvpStatus, subscribeToEventRsvps } from "@/lib/event-rsvp";
 
-export function SessionCard({
-  day,
-  month,
-  title,
-  time,
-  description,
-  image,
-  attendeeAvatars,
-  attendeeCount,
-}: {
-  day: string;
-  month: string;
-  title: string;
-  time: string;
-  description: string;
-  image: string;
-  attendeeAvatars: string[];
-  attendeeCount: number;
-}) {
+function getServerStatus() {
+  return "none" as const;
+}
+
+export function SessionCard({ event }: { event: EventRecord }) {
+  const status = useSyncExternalStore(
+    subscribeToEventRsvps,
+    () => getRsvpStatus(event.id, event.defaultStatus),
+    getServerStatus
+  );
+
+  function handleClick() {
+    if (status !== "none") {
+      setRsvpStatus(event.id, "none");
+    } else {
+      setRsvpStatus(event.id, event.capacityFull ? "waitlisted" : "attending");
+    }
+  }
+
+  const label =
+    status === "attending" ? "Reserved" : status === "waitlisted" ? "Waitlisted" : event.capacityFull ? "Join Waitlist" : "Reserve";
+
   return (
-    <div className="group relative flex h-full flex-col overflow-hidden rounded-xl border border-tertiary/10 bg-cream-foam shadow-sm transition-shadow hover:shadow-md">
-      <div className="absolute left-4 top-4 z-20 rounded-lg bg-roasted-espresso p-2 text-center text-cream-foam shadow-md">
-        <div className="font-label-caps text-label-caps">{month}</div>
-        <div className="font-headline-md text-headline-md leading-none">{day}</div>
-      </div>
-
-      <div className="relative h-48 overflow-hidden">
+    <motion.div
+      whileHover={{ y: -8 }}
+      transition={{ type: "spring", stiffness: 300, damping: 22 }}
+      className="group relative flex h-full w-[85vw] shrink-0 snap-start flex-col overflow-hidden rounded-[2rem] border border-tertiary/10 bg-surface-container-lowest shadow-sm transition-shadow hover:shadow-md md:w-[380px]"
+    >
+      <div className="relative h-56 overflow-hidden">
         <Image
-          src={image}
-          alt={title}
+          src={event.image}
+          alt={event.title}
           fill
-          sizes="(min-width: 768px) 50vw, 100vw"
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          sizes="(min-width: 768px) 380px, 85vw"
+          className="object-cover transition-transform duration-1000 group-hover:scale-110"
         />
+        <div className="absolute left-4 top-4 min-w-[3.5rem] rounded-xl bg-cream-foam/90 p-2 text-center shadow-lg backdrop-blur-md">
+          <div className="font-label-caps text-[10px] font-bold uppercase tracking-wider text-bean-origin-gold">
+            {event.month}
+          </div>
+          <div className="mt-1 font-headline-sm text-[22px] font-bold leading-none text-roasted-espresso">
+            {event.day}
+          </div>
+        </div>
       </div>
 
-      <div className="flex flex-grow flex-col p-6">
-        <h3 className="mb-2 font-headline-sm text-headline-sm text-roasted-espresso">
-          {title}
-        </h3>
-        <div className="mb-3 flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
-          <Icon name="schedule" className="text-base" />
-          <span>{time}</span>
-        </div>
-        <p className="mb-6 line-clamp-2 flex-grow font-body-md text-body-md text-on-surface-variant">
-          {description}
-        </p>
-        <div className="mt-auto flex items-center justify-between">
-          <div className="flex items-center">
-            <div className="flex -space-x-2">
-              {attendeeAvatars.map((avatar) => (
-                <div
-                  key={avatar}
-                  className="relative h-6 w-6 overflow-hidden rounded-full border-2 border-cream-foam"
-                >
-                  <Image src={avatar} alt="" fill sizes="24px" className="object-cover" />
-                </div>
-              ))}
-            </div>
-            <span className="ml-2 font-label-caps text-[10px] text-on-surface-variant">
-              +{attendeeCount}
+      <div className="flex flex-grow flex-col justify-between bg-cream-foam p-6">
+        <div>
+          <div className="mb-3 flex gap-3">
+            <span className="font-label-caps text-[12px] font-bold uppercase tracking-widest text-bean-origin-gold">
+              {event.category}
             </span>
+            {event.levelTag && (
+              <span className="font-label-caps text-[12px] uppercase tracking-widest text-on-surface-variant/50">
+                {event.levelTag}
+              </span>
+            )}
           </div>
-          <button className="rounded-lg bg-roasted-espresso px-4 py-2 font-label-md text-label-md text-cream-foam transition-colors hover:bg-primary-container">
-            RSVP
+          <h3 className="mb-3 font-headline-md text-[22px] leading-tight text-roasted-espresso transition-colors duration-300 group-hover:text-bean-origin-gold">
+            {event.title}
+          </h3>
+          <div className="mb-4 flex items-center font-label-md text-label-md font-light text-on-surface-variant">
+            <Icon name="location_on" className="mr-2 text-[18px] text-bean-origin-gold" />
+            {event.location}
+          </div>
+        </div>
+
+        <div className="mt-auto flex items-center justify-between border-t border-tertiary/10 pt-6">
+          <div className="flex -space-x-3">
+            {event.attendeeAvatars.map((avatar) => (
+              <div
+                key={avatar}
+                className="relative h-8 w-8 overflow-hidden rounded-full border-2 border-cream-foam"
+              >
+                <Image src={avatar} alt="" fill sizes="32px" className="object-cover" />
+              </div>
+            ))}
+            <div className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-cream-foam bg-surface-variant font-label-caps text-[10px] text-on-surface-variant">
+              +{event.attendeeCount}
+            </div>
+          </div>
+          <button
+            onClick={handleClick}
+            className={
+              status !== "none"
+                ? "flex items-center gap-1 font-label-md text-label-md font-bold text-sage-leaf"
+                : "group/link flex items-center gap-1 font-label-md text-label-md font-bold text-roasted-espresso transition-colors hover:text-bean-origin-gold"
+            }
+          >
+            {label}
+            <Icon
+              name={status !== "none" ? "check_circle" : "arrow_forward"}
+              filled={status !== "none"}
+              className="text-[16px] transition-transform group-hover/link:translate-x-1"
+            />
           </button>
         </div>
       </div>
-    </div>
+    </motion.div>
   );
 }

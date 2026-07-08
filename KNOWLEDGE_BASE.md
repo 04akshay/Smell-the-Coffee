@@ -78,6 +78,8 @@ src/
     brew-log.ts                      — localStorage-backed brew completion count (getBrewCount, logBrewCompletion, subscribeToBrewLog)
     passport-stamps.ts               — localStorage-backed stamp persistence (isCafeStamped, addCafeStamp, subscribeToStamps)
     community-interactions.ts        — localStorage-backed savedSpots/likedPosts/following/pollVotes, one shared event channel (subscribeToCommunityInteractions)
+    events.ts                        — featuredEvent/upcomingEvents/hostedEvents dataset + buildGoogleCalendarUrl
+    event-rsvp.ts                    — localStorage-backed per-event RSVP status ("attending"/"waitlisted"/"none")
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -91,7 +93,7 @@ src/
     brewing-guide/page.tsx            — Brewing Guide listing (server shell; delegates to BrewingGuideView)
     brewing-guide/v60/page.tsx        — V60 guide detail (static route, reads from lib/brewing-guides.ts)
     brewing-guide/[slug]/page.tsx     — Guide detail (dynamic route for AeroPress, Chemex, French Press; notFound() on miss)
-    events/page.tsx                   — Event Roster
+    events/page.tsx                   — Community Events (Discover/My Events tabs)
     community/page.tsx                — Community Hub
     passport/page.tsx                 — Coffee Passport
   components/
@@ -137,8 +139,12 @@ src/
       brew-timer-launcher.tsx         — Client; owns open state for the timer overlay
       brew-timer-overlay.tsx          — Client; running/paused/complete full-screen timer
     events/
-      featured-event.tsx
-      session-card.tsx
+      event-tabs.tsx                   — Client; Discover/My Events pill toggle
+      discover-view.tsx                — FeaturedEvent + UpcomingHorizonsCarousel
+      featured-event.tsx               — Client; wired RSVP toggle
+      upcoming-horizons-carousel.tsx    — Client; horizontal scroll with working arrow buttons
+      session-card.tsx                 — Client; wired Reserve/Waitlist toggle
+      my-events-view.tsx               — Client; Hosting/Attending/Waitlisted, calendar links
     community/
       status-banner.tsx                — Now takes xp/xpTarget/nextLevelLabel for the XP bar
       live-pulse-section.tsx           — Client; owns Sort/Filter state for the vibe card feed
@@ -537,26 +543,41 @@ AeroPress, Chemex, and French Press each have their own equipment/recipe/step da
 
 ### 5.8 Events (`/events`)
 
-**Purpose:** Showcase upcoming specialty coffee events — throwdowns, cuppings, meet & greets.
+**Purpose:** Showcase and RSVP to specialty coffee events — throwdowns, cuppings, workshops — and track what you're hosting/attending. Rebuilt from Stitch's "Community Events" + "My Rituals" designs into a single page with two tabs (the mockups themselves relate this way: mockup 10's "My Events" tab is a condensed version of mockup 11's full "My Rituals" treatment, so they were merged rather than built as separate routes). **Global `TopNav`/`BottomNav` untouched** — the mockups' own nav/hero CTA ("Host an Event" in the nav bar) was discarded per the standing rule that Stitch chrome is never adopted.
 
 **Components:**
-- Page header — "Event Roster" title
-- `FeaturedEvent` — large hero card with date, title, location, description, attendee avatars + count, RSVP CTA
-- Filter button — icon button (UI only, not wired)
-- `SessionCard` — grid of upcoming sessions (2 cards, 2-column on md+)
+- `EventTabs` (`client`, `src/components/events/event-tabs.tsx`) — pill toggle "Discover Events" / "My Events" with an animated sliding background (`layoutId`) and a cross-fade between the two views (`AnimatePresence`)
+- `DiscoverView` — `FeaturedEvent` + `UpcomingHorizonsCarousel`
+- `FeaturedEvent` (`client`) — now takes a single `event: EventRecord` prop; RSVP button ("Immerse Yourself" ⇄ "You're Going") is a real toggle persisted via `lib/event-rsvp.ts`, not decorative
+- `UpcomingHorizonsCarousel` (`client`) — horizontal snap-scroll row with working prev/next buttons (`scrollBy`, not decorative)
+- `SessionCard` (`client`) — restyled per the "Upcoming Horizons" card design (date badge, category/level tags); Reserve/Waitlist button reflects and sets real RSVP state. `capacityFull: true` on an `EventRecord` makes the CTA read "Join Waitlist" instead of "Reserve" when not yet RSVP'd
+- `MyEventsView` (`client`) — three sections:
+  - **Hosting** — from `hostedEvents` (fixed seed data; there's no event-creation flow, so these represent events "you" already host, same convention as Passport's static stats). "Manage" expands an inline panel (height/opacity animation) with a real "Copy Invite Link" action (clipboard, with a caught-and-ignored failure path — see Agent note below)
+  - **Attending** / **Waitlisted** — computed live from `lib/event-rsvp.ts` state crossed with `featuredEvent`/`upcomingEvents`, so RSVPing on the Discover tab immediately populates these sections (verified: RSVPing to "Intro to Specialty Cupping" on Discover made it appear here without a reload). "Add to Calendar" builds a real Google Calendar link (`buildGoogleCalendarUrl`); "Cancel RSVP" / "Leave Waitlist" reset status back to `"none"`
+- `.event-ring-1` / `.event-ring-2` (`globals.css`) — large soft organic-shaped border rings behind the hero, `pointer-events: none`, purely decorative
 
-**Featured event:** The Eastside Throwdown — Oct 24, Sightglass Coffee Roasters, 45 attendees
+**Data (`src/lib/events.ts`):** `featuredEvent`, `upcomingEvents[]`, `hostedEvents[]`. Each `EventRecord` carries `isoStart`/`isoEnd` (floating local time, no timezone tracked) for the calendar link, and an optional `defaultStatus` used to seed an already-RSVP'd/waitlisted state on first load (matching the mockups' populated "My Events" screenshots) — `localStorage` overrides `defaultStatus` once the user interacts.
 
-**Upcoming sessions:**
-| Title | Date | Time | Attendees |
+**Featured event:** The Eastside Throwdown — Oct 24 2026, Sightglass Coffee Roasters, 124 attendees, `defaultStatus: "attending"`
+
+**Upcoming Horizons (3):**
+| Title | Category | Date | Status |
 |---|---|---|---|
-| Beginner's Cupping | Oct 28 | 10:00 AM – 12:00 PM | 8 |
-| Roaster's Meet & Greet | Nov 2 | 6:30 PM – 9:00 PM | 21 |
+| Intro to Specialty Cupping | Tasting / Beginner | Oct 28 | — |
+| V60 & Chemex Masterclass | Workshop / Hands-on | Nov 2 | `capacityFull`, `defaultStatus: "waitlisted"` |
+| Origin Series: Ethiopian Yirgacheffe | Lecture | Nov 15 | — |
+
+**Hosted events (2):** Advanced Espresso Extraction (Workshop, 12/15) and Home Roasting 101 (Class, 8/8 — full)
+
+**Design-token note:** the mockups introduced a new `immersive-gold: #d4af37` accent. This was **not** added to the theme — it's reused as the existing `bean-origin-gold` token instead, to avoid every new Stitch import silently forking the palette. If a future mockup needs a genuinely distinct gold, that should be a deliberate design-system decision, not an incidental one.
+
+**Agent note — clipboard robustness:** `navigator.clipboard.writeText()` throws `NotAllowedError` when the document isn't focused (this surfaced as a real unhandled-rejection bug during testing, not just a test artifact — the same failure mode can hit real users if clipboard permission is denied by browser policy). Every clipboard call in this codebase (`MyEventsView`'s "Copy Invite Link", `PassportStampFlow`'s and `BrewTimerOverlay`'s "Share" fallback) is now wrapped in `try/catch` that silently leaves the button state unchanged on failure. Any new clipboard call must follow the same pattern.
 
 **User flow:**
-1. User clicks "Events" in nav → lands on `/events`
-2. Sees featured throwdown event with RSVP CTA (not wired)
-3. Scrolls to upcoming sessions; sees date/time/description for each
+1. User clicks "Events" in nav → lands on `/events` on the "Discover Events" tab
+2. Sees the Featured Ritual hero; can RSVP directly from it
+3. Scrolls the Upcoming Horizons carousel (or uses the arrow buttons); reserves or joins a waitlist per card
+4. Switches to "My Events" → sees Hosting (with an expandable invite-link panel), Attending (with real "Add to Calendar" links), and Waitlisted (with real queue position among currently-waitlisted items) — all reflecting whatever was just RSVP'd on the Discover tab
 
 ---
 
@@ -783,6 +804,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-08 | Events page rebuilt from Stitch's "Community Events" + "My Rituals" designs into one page with Discover/My Events tabs: real RSVP/waitlist persistence (`lib/event-rsvp.ts`), a working horizontal carousel, an expandable Hosting panel with a copy-invite-link action, and real Google Calendar links for Attending events. Fixed a genuine unhandled-rejection bug (unguarded `clipboard.writeText` calls) across 3 components while auditing clipboard usage. Global nav untouched | — |
 | 2026-07-08 | Community Hub enriched with net-new interactive features (structure unchanged): wired Sort/Filter on Live Pulse (`LivePulseSection`), persisted Like/Save Spot/Follow on `VibeCard` via new `lib/community-interactions.ts`, corrected check-ins to reference real cafes instead of roaster names, added `LiveHeatmapWidget` (real top-3 cafes), `ActiveContributorsWidget` (links to Passport), and `WeeklyPollWidget` (real beans, persisted vote), and added an XP bar to `StatusBanner` | — |
 | 2026-07-08 | Brew Timer implemented from Stitch designs (Paused, Active/Running, Complete): `BrewTimerOverlay` with a real countdown (`lib/brew-timer.ts`), wired to "Start Brew Timer" and the Timer FAB on all 4 brewing guides; `lib/brew-log.ts` for completion tracking; `targetGrams`/`flowNote` added to `lib/brewing-guides.ts` | — |
 | 2026-07-08 | Passport Stamp flow implemented from Stitch designs (Verify Location, Digital Stamp Ritual, Passport Stamped): `PassportStampFlow` modal wired to every cafe's "Stamp My Passport" button, `lib/passport-stamps.ts` for localStorage persistence, `badgeName` added to every `CafeRecord` | — |
