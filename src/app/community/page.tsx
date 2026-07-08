@@ -1,42 +1,48 @@
-import { Icon } from "@/components/icon";
 import { StatusBanner } from "@/components/community/status-banner";
-import { VibeCard } from "@/components/community/vibe-card";
+import { LivePulseSection } from "@/components/community/live-pulse-section";
 import { EditorialItem } from "@/components/community/editorial-item";
 import { ThrowdownRoster } from "@/components/community/throwdown-roster";
+import { LiveHeatmapWidget } from "@/components/community/live-heatmap-widget";
+import { ActiveContributorsWidget } from "@/components/community/active-contributors-widget";
+import { WeeklyPollWidget } from "@/components/community/weekly-poll-widget";
 import { Footer } from "@/components/community/footer";
 
 const vibeCards = [
   {
+    id: "elena-roastery",
     avatar:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuAT1oKd9Dn_6H1pvqGAM7TpgkmLE_-BFR8A5VscTJHBjQaoW2oz225ovaKZ76ey9_dpHu6V-BRMHspgslyEHCZhvMvXYAxsijuZF9ssI_TkkD-9o9t6w_4Pm9g5ICfVEseDC1kXAfVQ-BUa22goqiELnJQ8dAoQpDohbBUd1-8FEcCbJtwC0VvExkd2JYf20Sq_eGhZb39HFE0rT0hGxBdSKeZw41t2qspbQHcc8-d8vJkYfsRwPOF7zQ",
     name: "Elena R.",
     levelLabel: "Level 8 • Chemex Novice",
-    message: (
-      <>
-        Just checked into <strong>Onyx Coffee Lab</strong>. The natural light here is incredible
-        right now.
-      </>
-    ),
+    cafeName: "Roastery Coffee House",
+    cafeSlug: "roastery-coffee-house",
+    message: <>The natural light here is incredible right now. Perfect for getting some focused work done. ☀️💻</>,
     tags: [{ label: "Productive Vibe", emphasis: true }, { label: "Laptop Friendly" }],
     metrics: [
-      { label: "Noise Level", icon: "volume_up", filled: 2, filledClasses: "bg-bean-origin-gold" },
-      { label: "Seating", icon: "event_seat", filled: 1, filledClasses: "bg-sage-leaf" },
+      { label: "Noise", icon: "volume_up", filled: 2, filledClasses: "bg-bean-origin-gold" },
+      { label: "Seating", icon: "event_seat", filled: 3, filledClasses: "bg-sage-leaf" },
     ],
+    likeCount: 24,
+    commentCount: 3,
   },
   {
+    id: "marcus-perch",
     avatar:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuBTXMqB89mX0z2QY5EFOK9jM-Uyr7x-p8gxiPIx5p52x2NvHIl7V1JsyK4wFfBJvVnQbrCJBgq3eOBNLTi-feTxBvQs9MhxOodP3VnIeTHNEyS-YQRSK-WVBx7Uj9vjTeHEF5k6yAw7CNpWzHNIAYs5YdhVUthOSM4P36__ZSdALpqBXmepwKGMwDO_xnQo0UuFGoOH44plJ-wp9H33LXTsJJW8iAJIlLsYYADdR8sJQqshXP_WbaWITg",
     name: "Marcus T.",
     levelLabel: "Level 18 • Roaster",
+    cafeName: "Perch Wine & Coffee Bar",
+    cafeSlug: "perch-wine-coffee-bar",
     image:
       "https://lh3.googleusercontent.com/aida-public/AB6AXuDHSSyCjYdjskdIwj2KMobbacA43EoQs5PWpOGB5_eGonL0UEcPOlFdM_50CPBN-vfmMTZ-5q6HPyo9XZIpEHnab2mTWl2q5wVzyggy4oVgqVtoXn2fdGuh5AM4uhEW1CPZKr5kmYZoAuev5FmzQSk-gqM5Ep12I9dH7HLHAQjMaBDdxPF-cMsA7Tq6NIR30-cNJo2aQMBu9tU3n3jNDItq7lAINENxhRd4Iy4Uh71p3tYFWnmqDFuN0Q",
-    message: (
-      <>
-        Dialing in the new Ethiopian Yirgacheffe. Blueberry notes are popping today at{" "}
-        <strong>Sey Coffee</strong>.
-      </>
-    ),
+    message: <>Dialing in the new Ethiopian Yirgacheffe. Blueberry notes are popping today.</>,
     tags: [{ label: "Social Vibe", emphasis: true }, { label: "No Laptops" }],
+    metrics: [
+      { label: "Noise", icon: "volume_up", filled: 3, filledClasses: "bg-bean-origin-gold" },
+      { label: "Seating", icon: "event_seat", filled: 1, filledClasses: "bg-sage-leaf" },
+    ],
+    likeCount: 56,
+    commentCount: 12,
   },
 ];
 
@@ -106,25 +112,19 @@ export default function CommunityPage() {
               brewing journey.
             </p>
           </div>
-          <StatusBanner streakLabel="14 Day Vibe Streak" level={14} levelTitle="Barista Pro" />
+          <StatusBanner
+            streakLabel="14 Day Vibe Streak"
+            level={14}
+            levelTitle="Barista Pro"
+            xp={240}
+            xpTarget={500}
+            nextLevelLabel="Roaster"
+          />
         </header>
 
         <div className="grid grid-cols-1 gap-gutter lg:grid-cols-12">
           <div className="flex flex-col gap-section-gap lg:col-span-8">
-            <section>
-              <div className="mb-6 flex items-center justify-between">
-                <h2 className="font-headline-md text-headline-md text-primary">Live Pulse</h2>
-                <button className="flex items-center gap-1 font-label-md text-label-md text-sage-leaf transition-colors hover:text-primary">
-                  Filter
-                  <Icon name="filter_list" className="text-[18px]" />
-                </button>
-              </div>
-              <div className="masonry-grid">
-                {vibeCards.map((card) => (
-                  <VibeCard key={card.name} {...card} />
-                ))}
-              </div>
-            </section>
+            <LivePulseSection cards={vibeCards} />
 
             <section>
               <div className="mb-6 flex items-center justify-between border-b border-tertiary/10 pb-4">
@@ -146,8 +146,11 @@ export default function CommunityPage() {
             </section>
           </div>
 
-          <div className="lg:col-span-4">
+          <div className="flex flex-col gap-8 lg:col-span-4">
+            <LiveHeatmapWidget />
             <ThrowdownRoster throwdowns={throwdowns} />
+            <ActiveContributorsWidget />
+            <WeeklyPollWidget />
           </div>
         </div>
       </main>

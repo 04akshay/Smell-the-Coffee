@@ -77,6 +77,7 @@ src/
     brew-timer.ts                    — Pure timing helpers: parses step timeLabels into {startSec, endSec} boundaries
     brew-log.ts                      — localStorage-backed brew completion count (getBrewCount, logBrewCompletion, subscribeToBrewLog)
     passport-stamps.ts               — localStorage-backed stamp persistence (isCafeStamped, addCafeStamp, subscribeToStamps)
+    community-interactions.ts        — localStorage-backed savedSpots/likedPosts/following/pollVotes, one shared event channel (subscribeToCommunityInteractions)
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -139,10 +140,14 @@ src/
       featured-event.tsx
       session-card.tsx
     community/
-      status-banner.tsx
-      vibe-card.tsx
+      status-banner.tsx                — Now takes xp/xpTarget/nextLevelLabel for the XP bar
+      live-pulse-section.tsx           — Client; owns Sort/Filter state for the vibe card feed
+      vibe-card.tsx                    — Client; real cafe links, persisted like/save/follow
       editorial-item.tsx
       throwdown-roster.tsx
+      live-heatmap-widget.tsx          — Top-3 cafes by rating, real links (server component)
+      active-contributors-widget.tsx   — Mirrors Passport's FriendBoard trio; links to /passport
+      weekly-poll-widget.tsx           — Client; persisted vote, options are real lib/beans.ts beans
       footer.tsx                      — Page-local dark footer
     passport/
       profile-header.tsx
@@ -557,34 +562,40 @@ AeroPress, Chemex, and French Press each have their own equipment/recipe/step da
 
 ### 5.9 Community Hub (`/community`)
 
-**Purpose:** Social feed and community layer — live vibe check-ins, editorials, and throwdown roster.
+**Purpose:** Social feed and community layer — live vibe check-ins, editorials, throwdown roster, and city-wide activity widgets, all cross-linked into real site data (no dead ends).
 
 **Components:**
-- Page header — title + `StatusBanner` (14-day streak, Level 14 Barista Pro)
-- `VibeCard` (masonry grid) — user check-in cards with avatar, message, vibe tags, noise/seating metrics; optional image
-- `EditorialItem` — article row with image, tag, title, description, author, read time
-- `ThrowdownRoster` (sidebar) — compact event list with RSVP/Waitlist CTAs
-- `Footer` (page-local) — dark espresso-toned footer; **not a global footer**
+- Page header — title + `StatusBanner` (`client`-agnostic props, but consumes reactive data) — now also renders an XP progress bar (`xp`/`xpTarget`/`nextLevelLabel` props) alongside the streak
+- `LivePulseSection` (`client`, `src/components/community/live-pulse-section.tsx`) — owns Sort (Most Recent / Most Liked) and Filter (by vibe tag, multi-select) state; **both were previously decorative buttons, now fully functional**, with an empty state when a filter yields zero cards
+- `VibeCard` (`client`) — check-ins now reference **real cafes** (`cafeName`/`cafeSlug`, rendered as a `Link` to `/cafe/[slug]`) instead of the roaster names ("Onyx Coffee Lab", "Sey Coffee") the mockup/original content confused with cafe names. Adds two real interactions, both persisted in `localStorage` via `lib/community-interactions.ts`:
+  - **Like** — optimistic count (`baseLikeCount + 1` when liked), toggle, persists across reloads
+  - **Save Spot** — bookmark toggle keyed by `cafeSlug`; only rendered when a card has one
+  - **Follow** — was already local `useState`; now also persisted the same way, keyed by person name
+- `EditorialItem` — unchanged
+- `ThrowdownRoster` (sidebar) — unchanged, kept in its original position
+- `LiveHeatmapWidget` (new, sidebar, server component) — top 3 cafes from `lib/cafes.ts` ranked by `rating` desc, each a real `Link` to `/cafe/[slug]`; "View Full Map" links to `/finder`. Not literally real-time — "Live" is flavor language consistent with the rest of the site (e.g. "Syncing Vibe Coordinates" in the Stamp flow), but the ranking itself is real data, not fabricated
+- `ActiveContributorsWidget` (new, sidebar) — reuses the same 3 people as Passport's `FriendBoard` (Sarah J., You, Marcus K.) reframed as weekly update counts; "View Leaderboard" links to `/passport`, where the fuller leaderboard actually lives
+- `WeeklyPollWidget` (new, sidebar, `client`) — real interactive poll; options are actual beans from `lib/beans.ts` (Monsooned Malabar / Baba Budangiri / Ethiopia Yirgacheffe, matched to the right roast levels) rather than an invented "Attikan Estate" option that didn't exist in the bean database. Vote persists per-poll-id in `localStorage`; percentages are computed live from seeded base counts + the user's vote, so changing your vote recalculates correctly
+- `Footer` (page-local) — unchanged; still has 3 dead links (About Us, Privacy Policy, Contact) — out of scope for this pass, tracked as a known gap below
 
 **Live Pulse vibe cards (2):**
-- Elena R. (Level 8, Chemex Novice) — checked into Onyx Coffee Lab; Productive Vibe, Laptop Friendly
-- Marcus T. (Level 18, Roaster) — dialing in Ethiopian Yirgacheffe at Sey Coffee; Social Vibe, No Laptops
+- Elena R. (Level 8, Chemex Novice) — checked into **Roastery Coffee House** (`/cafe/roastery-coffee-house`); Productive Vibe, Laptop Friendly; 24 base likes, 3 comments
+- Marcus T. (Level 18, Roaster) — checked into **Perch Wine & Coffee Bar** (`/cafe/perch-wine-coffee-bar`, whose real `coffee.origins` includes Yirgacheffe, so the "dialing in Ethiopian Yirgacheffe" copy is now actually consistent with that cafe's data); Social Vibe, No Laptops; 56 base likes, 12 comments
 
-**Member Editorials (2):**
-- "Hidden Courtyards: The Best Secret Patios for Summer Sipping" — Sarah L., 5 min read
-- "Burr Alignment: A Practical Guide to Consistency" — David W., 12 min read
+**Member Editorials (2):** unchanged — "Hidden Courtyards..." (Sarah L., 5 min) and "Burr Alignment..." (David W., 12 min)
 
-**Throwdown Roster (2):**
-- Tonight 7:00 PM — Latte Art Smackdown, Prologue Coffee Bar (8+2 attendees) — RSVP
-- Saturday 10:00 AM — Public Cupping: Gesha Varietals, The Roastery (2 attendees) — Waitlist
+**Throwdown Roster (2):** unchanged — Latte Art Smackdown (RSVP) and Public Cupping: Gesha Varietals (Waitlist), both still decorative CTAs (needs design, tracked elsewhere)
+
+**Known gap:** Throwdown RSVP/Waitlist, "Host an Event", and the footer's 3 links remain decorative — out of scope for this pass, which focused on net-new interactive features rather than fixing pre-existing dead CTAs on this page.
 
 **User flow:**
 1. User clicks "Community" in nav → lands on `/community`
-2. Sees their streak/level status banner
-3. Scrolls the masonry vibe card feed (live check-ins)
-4. Reads member editorial articles
-5. Checks throwdown roster sidebar; RSVPs or joins waitlist (CTA present; not wired)
-6. Reaches page-local dark footer
+2. Sees streak + XP progress in the status banner
+3. Sorts/filters the Live Pulse feed by vibe; likes a check-in or saves its cafe — both persist
+4. Clicks a check-in's cafe name → goes straight to that cafe's real detail page
+5. Reads member editorial articles
+6. In the sidebar: sees real trending cafes (Live Heatmap → Finder), checks the Throwdown Roster, sees this week's top contributors (→ Passport), and votes in the Weekly Poll (persists, shows live %)
+7. Reaches page-local dark footer
 
 ---
 
@@ -720,6 +731,14 @@ Pass `href` to make the card a `<Link>`. Without `href`, renders a non-navigable
 
 Self-contained modal; `open` controls mount/unmount via `AnimatePresence`. Resets its internal step to `"verify"` whenever `open` flips `false → true` — this is done by comparing against a `wasOpen` state variable and calling `setState` directly in the render body (not in a `useEffect`), since this project's lint config flags synchronous `setState` inside effects. Calls `addCafeStamp(cafeSlug)` itself; callers don't need to persist anything. Any new step or async data added here should generate randomness/impure values inside an effect or event handler, never in render/`useMemo` — the `react-hooks/purity` rule will fail the build otherwise (see `Confetti`'s `generateBeans()` for the pattern).
 
+### `<VibeCard id cafeName? cafeSlug? likeCount commentCount ... />`
+
+`id` must be stable and unique — it's the localStorage key for likes. `cafeSlug` is optional; the "Save Spot" button only renders when it's present, since saving only makes sense for a card tied to a real cafe. Displayed like count is `likeCount + (liked ? 1 : 0)` — `likeCount` itself is never mutated, so don't try to persist an incremented count; the optimistic `+1` is derived at render time from `isPostLiked`.
+
+### `<WeeklyPollWidget />`
+
+No props — poll ID and options are constants inside the component. If you add a new poll (e.g. a future week), give it a new `POLL_ID` constant rather than reusing `"rainy-day-beans"`, or every past voter's stored vote will suddenly apply to the new question.
+
 ### `<RadarChart axes={[...]} />`
 
 Client component. Each axis: `{ label: string, value: number (0–100), description: string }`. Geometry is computed — do not hardcode SVG coordinates.
@@ -764,6 +783,7 @@ These rules are critical for any AI agent modifying this codebase:
 
 | Date | Change | Commit |
 |---|---|---|
+| 2026-07-08 | Community Hub enriched with net-new interactive features (structure unchanged): wired Sort/Filter on Live Pulse (`LivePulseSection`), persisted Like/Save Spot/Follow on `VibeCard` via new `lib/community-interactions.ts`, corrected check-ins to reference real cafes instead of roaster names, added `LiveHeatmapWidget` (real top-3 cafes), `ActiveContributorsWidget` (links to Passport), and `WeeklyPollWidget` (real beans, persisted vote), and added an XP bar to `StatusBanner` | — |
 | 2026-07-08 | Brew Timer implemented from Stitch designs (Paused, Active/Running, Complete): `BrewTimerOverlay` with a real countdown (`lib/brew-timer.ts`), wired to "Start Brew Timer" and the Timer FAB on all 4 brewing guides; `lib/brew-log.ts` for completion tracking; `targetGrams`/`flowNote` added to `lib/brewing-guides.ts` | — |
 | 2026-07-08 | Passport Stamp flow implemented from Stitch designs (Verify Location, Digital Stamp Ritual, Passport Stamped): `PassportStampFlow` modal wired to every cafe's "Stamp My Passport" button, `lib/passport-stamps.ts` for localStorage persistence, `badgeName` added to every `CafeRecord` | — |
 | 2026-07-08 | Finder empty state implemented from Stitch design ("Coffee Finder - No Results"): `FinderEmptyState` component, `.coffee-pattern` utility, functional quick-vibe chips (added "Outdoor Seating" and "Quick Fix" tags to back 2 of them) | — |

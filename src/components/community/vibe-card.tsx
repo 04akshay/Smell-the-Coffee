@@ -1,8 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
+import Link from "next/link";
 import Image from "next/image";
 import { Icon } from "@/components/icon";
+import {
+  isFollowing,
+  isPostLiked,
+  isSpotSaved,
+  toggleFollowing,
+  toggleLikedPost,
+  toggleSpotSaved,
+  subscribeToCommunityInteractions,
+} from "@/lib/community-interactions";
 
 type Metric = {
   label: string;
@@ -11,24 +21,54 @@ type Metric = {
   filledClasses: string;
 };
 
+function getServerFalse() {
+  return false;
+}
+
 export function VibeCard({
+  id,
   avatar,
   name,
   levelLabel,
+  cafeName,
+  cafeSlug,
   image,
   message,
   tags,
   metrics,
+  likeCount,
+  commentCount,
 }: {
+  id: string;
   avatar: string;
   name: string;
   levelLabel: string;
+  cafeName?: string;
+  cafeSlug?: string;
   image?: string;
   message: React.ReactNode;
   tags: { label: string; emphasis?: boolean }[];
   metrics?: Metric[];
+  likeCount: number;
+  commentCount: number;
 }) {
-  const [following, setFollowing] = useState(false);
+  const following = useSyncExternalStore(
+    subscribeToCommunityInteractions,
+    () => isFollowing(name),
+    getServerFalse
+  );
+  const liked = useSyncExternalStore(
+    subscribeToCommunityInteractions,
+    () => isPostLiked(id),
+    getServerFalse
+  );
+  const saved = useSyncExternalStore(
+    subscribeToCommunityInteractions,
+    () => (cafeSlug ? isSpotSaved(cafeSlug) : false),
+    getServerFalse
+  );
+
+  const displayedLikes = likeCount + (liked ? 1 : 0);
 
   return (
     <div className="masonry-item rounded-xl border border-tertiary/10 bg-surface-container-lowest p-6 shadow-sm transition-shadow hover:shadow-md">
@@ -43,7 +83,7 @@ export function VibeCard({
           </div>
         </div>
         <button
-          onClick={() => setFollowing((v) => !v)}
+          onClick={() => toggleFollowing(name)}
           className={
             following
               ? "rounded-full bg-sage-leaf px-3 py-1 font-label-caps text-label-caps text-cream-foam transition-colors"
@@ -61,6 +101,20 @@ export function VibeCard({
       )}
 
       <p className="mb-4 font-body-md text-body-md text-on-surface">{message}</p>
+
+      {cafeName && (
+        <p className="mb-4 flex items-center gap-1 font-label-caps text-label-caps text-on-surface-variant">
+          <span className="h-2 w-2 rounded-full bg-green-500" />
+          Checked into{" "}
+          {cafeSlug ? (
+            <Link href={`/cafe/${cafeSlug}`} className="font-bold text-sage-leaf hover:underline">
+              {cafeName}
+            </Link>
+          ) : (
+            <span className="font-bold text-primary">{cafeName}</span>
+          )}
+        </p>
+      )}
 
       <div className="mb-4 flex flex-wrap gap-2">
         {tags.map((tag) => (
@@ -103,6 +157,37 @@ export function VibeCard({
           ))}
         </div>
       )}
+
+      <div className="mt-4 flex items-center justify-between border-t border-tertiary/5 pt-3">
+        <div className="flex gap-4">
+          <button
+            onClick={() => toggleLikedPost(id)}
+            className={
+              liked
+                ? "flex items-center gap-1 font-label-md text-label-md text-sage-leaf transition-colors"
+                : "flex items-center gap-1 font-label-md text-label-md text-on-surface-variant transition-colors hover:text-primary"
+            }
+          >
+            <Icon name="thumb_up" filled={liked} className="text-[18px]" /> {displayedLikes}
+          </button>
+          <span className="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant">
+            <Icon name="chat_bubble_outline" className="text-[18px]" /> {commentCount}
+          </span>
+        </div>
+        {cafeSlug && (
+          <button
+            onClick={() => toggleSpotSaved(cafeSlug)}
+            className={
+              saved
+                ? "flex items-center gap-1 rounded-full bg-primary px-3 py-1 font-label-caps text-label-caps text-cream-foam transition-colors"
+                : "flex items-center gap-1 rounded-full border border-tertiary/20 px-3 py-1 font-label-caps text-label-caps text-primary transition-colors hover:bg-primary hover:text-cream-foam"
+            }
+          >
+            <Icon name="bookmark" filled={saved} className="text-[14px]" />
+            {saved ? "Saved" : "Save Spot"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }
