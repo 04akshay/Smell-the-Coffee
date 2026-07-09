@@ -79,7 +79,7 @@ src/
     passport-stamps.ts               — localStorage-backed stamp persistence (isCafeStamped, addCafeStamp, subscribeToStamps)
     community-interactions.ts        — localStorage-backed savedSpots/likedPosts/following/pollVotes, one shared event channel (subscribeToCommunityInteractions)
     events.ts                        — featuredEvent/upcomingEvents/hostedEvents dataset + buildGoogleCalendarUrl
-    event-rsvp.ts                    — localStorage-backed per-event RSVP status ("attending"/"waitlisted"/"none")
+    event-rsvp.ts                    — localStorage-backed per-event RSVP ticket (RsvpRecord: status + reservationId/waitlistEmail/notifyOptIn), getTicket/confirmAttendance/joinWaitlist plus legacy getRsvpStatus/setRsvpStatus
   app/
     layout.tsx                        — Root layout (fonts, nav, body padding)
     globals.css                       — Tailwind v4 @theme tokens + custom utilities
@@ -548,15 +548,21 @@ AeroPress, Chemex, and French Press each have their own equipment/recipe/step da
 **Components:**
 - `EventTabs` (`client`, `src/components/events/event-tabs.tsx`) — pill toggle "Discover Events" / "My Events" with an animated sliding background (`layoutId`) and a cross-fade between the two views (`AnimatePresence`)
 - `DiscoverView` — `FeaturedEvent` + `UpcomingHorizonsCarousel`
-- `FeaturedEvent` (`client`) — now takes a single `event: EventRecord` prop; RSVP button ("Immerse Yourself" ⇄ "You're Going") is a real toggle persisted via `lib/event-rsvp.ts`, not decorative
+- `FeaturedEvent` / `SessionCard` (`client`) — the RSVP button no longer toggles status instantly; it opens `RsvpModal` (local `open` state per card). Button label reflects current status: "Immerse Yourself"/"Reserve" → "View Your Pass"/"View Pass" once attending, or "You're Waitlisted"/"Waitlisted" once on the waitlist — clicking again reopens the modal at whatever step matches that status
+- `RsvpModal` (`client`, `src/components/events/rsvp-modal.tsx`) — the full 3-step reservation ceremony from the Stitch "Ritual Invitation / Waitlist / Success" designs, built as one component whose visible step is a **pure function of RSVP status** (no separate step state machine):
+  - **Invitation** (`status === "none"` and not `capacityFull`) — split card, event image/details, "Confirm Ritual" → `confirmAttendance(eventId, reservationId)` (ID generated in the click handler via `Math.random()`, never in render — see Agent note on purity)
+  - **Waitlist form** (`status === "none"` and `capacityFull`) — "AT CAPACITY" chip, a real position indicator (`event.attendeeCount + 1`, not a fabricated number), email + notify-checkbox, fake-latency submit (`setTimeout` spinner, ~1.2s) → `joinWaitlist(eventId, email, notifyOptIn)`. Explicitly discloses "No email is sent externally in this preview — your spot in line is saved locally" rather than implying a real notification pipeline that doesn't exist
+  - **Waitlisted confirmation** (`status === "waitlisted"`) — shown either right after joining or on reopening; "Got It" just closes
+  - **Success pass** (`status === "attending"`) — digital ticket card (`.ticket-topographic` header, `.ticket-perforation` divider, `.ticket-float` idle animation, mouse-tilt via the same technique as `PassportStampFlow`'s seal), real reservation ID, real formatted date/time, real Google Calendar link, real share/clipboard action, real attendee count — no fake "download" button (the mockup's icon-only download had no real file behind it, so it was cut rather than shipped as a dead affordance)
 - `UpcomingHorizonsCarousel` (`client`) — horizontal snap-scroll row with working prev/next buttons (`scrollBy`, not decorative)
-- `SessionCard` (`client`) — restyled per the "Upcoming Horizons" card design (date badge, category/level tags); Reserve/Waitlist button reflects and sets real RSVP state. `capacityFull: true` on an `EventRecord` makes the CTA read "Join Waitlist" instead of "Reserve" when not yet RSVP'd
 - `MyEventsView` (`client`) — three sections:
   - **Hosting** — from `hostedEvents` (fixed seed data; there's no event-creation flow, so these represent events "you" already host, same convention as Passport's static stats). "Manage" expands an inline panel (height/opacity animation) with a real "Copy Invite Link" action (clipboard, with a caught-and-ignored failure path — see Agent note below)
-  - **Attending** / **Waitlisted** — computed live from `lib/event-rsvp.ts` state crossed with `featuredEvent`/`upcomingEvents`, so RSVPing on the Discover tab immediately populates these sections (verified: RSVPing to "Intro to Specialty Cupping" on Discover made it appear here without a reload). "Add to Calendar" builds a real Google Calendar link (`buildGoogleCalendarUrl`); "Cancel RSVP" / "Leave Waitlist" reset status back to `"none"`
-- `.event-ring-1` / `.event-ring-2` (`globals.css`) — large soft organic-shaped border rings behind the hero, `pointer-events: none`, purely decorative
+  - **Attending** / **Waitlisted** — computed live from `lib/event-rsvp.ts` state crossed with `featuredEvent`/`upcomingEvents`, so RSVPing on the Discover tab immediately populates these sections. "Add to Calendar" builds a real Google Calendar link (`buildGoogleCalendarUrl`); "Cancel RSVP" / "Leave Waitlist" reset status back to `"none"`
+- `.event-ring-1` / `.event-ring-2`, `.ticket-topographic`, `.ticket-perforation`, `.ticket-float` (`globals.css`) — decorative, `pointer-events: none` where relevant
 
-**Data (`src/lib/events.ts`):** `featuredEvent`, `upcomingEvents[]`, `hostedEvents[]`. Each `EventRecord` carries `isoStart`/`isoEnd` (floating local time, no timezone tracked) for the calendar link, and an optional `defaultStatus` used to seed an already-RSVP'd/waitlisted state on first load (matching the mockups' populated "My Events" screenshots) — `localStorage` overrides `defaultStatus` once the user interacts.
+**Data (`src/lib/events.ts`):** `featuredEvent`, `upcomingEvents[]`, `hostedEvents[]`. Each `EventRecord` carries `isoStart`/`isoEnd` (floating local time, no timezone tracked) for the calendar link, and an optional `defaultStatus` used to seed an already-RSVP'd/waitlisted state on first load — `localStorage` overrides `defaultStatus` once the user interacts.
+
+**RSVP storage (`src/lib/event-rsvp.ts`):** upgraded from a plain `Record<string, RsvpStatus>` to `Record<string, RsvpRecord>` (`{status, reservationId?, waitlistEmail?, notifyOptIn?}`) to hold ticket data, not just a status string. `readStore()` normalizes the old shape defensively (a bare string per event) so stale `localStorage` from earlier testing doesn't crash. `getRsvpStatus`/`setRsvpStatus` keep their original signatures for backward compatibility with `MyEventsView`; new `getTicket`/`confirmAttendance`/`joinWaitlist` are additive.
 
 **Featured event:** The Eastside Throwdown — Oct 24 2026, Sightglass Coffee Roasters, 124 attendees, `defaultStatus: "attending"`
 
@@ -564,20 +570,27 @@ AeroPress, Chemex, and French Press each have their own equipment/recipe/step da
 | Title | Category | Date | Status |
 |---|---|---|---|
 | Intro to Specialty Cupping | Tasting / Beginner | Oct 28 | — |
-| V60 & Chemex Masterclass | Workshop / Hands-on | Nov 2 | `capacityFull`, `defaultStatus: "waitlisted"` |
+| V60 & Chemex Masterclass | Workshop / Hands-on | Nov 2 | `capacityFull: true` (no `defaultStatus` — see note below) |
 | Origin Series: Ethiopian Yirgacheffe | Lecture | Nov 15 | — |
+
+**Content decision:** this event originally also had `defaultStatus: "waitlisted"`, seeded so "My Events" wasn't empty on first visit. That default was removed here because it meant a fresh visitor could never actually reach the real "AT CAPACITY" join-waitlist form (mockup 13's whole point) — they'd only ever see the already-joined confirmation. `capacityFull` alone is enough to keep the form reachable; the confirmation state is still fully exercised once someone actually submits it.
 
 **Hosted events (2):** Advanced Espresso Extraction (Workshop, 12/15) and Home Roasting 101 (Class, 8/8 — full)
 
 **Design-token note:** the mockups introduced a new `immersive-gold: #d4af37` accent. This was **not** added to the theme — it's reused as the existing `bean-origin-gold` token instead, to avoid every new Stitch import silently forking the palette. If a future mockup needs a genuinely distinct gold, that should be a deliberate design-system decision, not an incidental one.
 
-**Agent note — clipboard robustness:** `navigator.clipboard.writeText()` throws `NotAllowedError` when the document isn't focused (this surfaced as a real unhandled-rejection bug during testing, not just a test artifact — the same failure mode can hit real users if clipboard permission is denied by browser policy). Every clipboard call in this codebase (`MyEventsView`'s "Copy Invite Link", `PassportStampFlow`'s and `BrewTimerOverlay`'s "Share" fallback) is now wrapped in `try/catch` that silently leaves the button state unchanged on failure. Any new clipboard call must follow the same pattern.
+**Agent note — clipboard robustness:** `navigator.clipboard.writeText()` throws `NotAllowedError` when the document isn't focused (this surfaced as a real unhandled-rejection bug during testing, not just a test artifact — the same failure mode can hit real users if clipboard permission is denied by browser policy). Every clipboard call in this codebase (`MyEventsView`'s "Copy Invite Link", `PassportStampFlow`'s, `BrewTimerOverlay`'s, and `RsvpModal`'s "Share" fallback) is now wrapped in `try/catch` that silently leaves the button state unchanged on failure. Any new clipboard call must follow the same pattern.
+
+**Agent note — `useSyncExternalStore` snapshot identity:** `RsvpModal`'s first draft called `useSyncExternalStore(subscribeToEventRsvps, () => getTicket(event.id), ...)` directly. `getTicket()` returns a freshly-constructed object every call, which fails the hook's `Object.is` stability check on the *snapshot itself* (not just the subscribed data) and throws "Maximum update depth exceeded" — a real crash, not a lint warning, and it didn't show up until the modal was actually opened in the browser. Fix: subscribe to `getRsvpSnapshotRaw()` (the raw JSON string — a primitive, stable by value) to drive re-renders, then call `getTicket(event.id)` as a plain function in the render body to get the actual object. This is the same pattern `MyEventsView` already used; any new component reading `event-rsvp.ts` state reactively must follow it, not call an object-returning getter directly as the snapshot function. If you hit stale "Maximum update depth" errors that don't reproduce after fixing the code, suspect stale Fast Refresh state — a full dev-server restart (not just a page reload) is sometimes needed to clear it.
+
+**Testing note:** `RsvpModal`'s waitlist form was largely verified via direct DOM API calls (native input value setter + `dispatchEvent(new Event('input', {bubbles:true}))`, then `form.requestSubmit()`) rather than the browser-automation click tool, because clicking a `<button type="submit">` inside the `<form>` was unreliable (inconsistent localStorage writes, or the button stuck in its "Adding..." state) while the same tool worked fine on plain `<button type="button">`s elsewhere in the modal. The DOM-level test produced the correct persisted record, confirming the form's own code path is correct — this is a browser-automation tool limitation with submit buttons, not an app bug.
 
 **User flow:**
 1. User clicks "Events" in nav → lands on `/events` on the "Discover Events" tab
-2. Sees the Featured Ritual hero; can RSVP directly from it
-3. Scrolls the Upcoming Horizons carousel (or uses the arrow buttons); reserves or joins a waitlist per card
-4. Switches to "My Events" → sees Hosting (with an expandable invite-link panel), Attending (with real "Add to Calendar" links), and Waitlisted (with real queue position among currently-waitlisted items) — all reflecting whatever was just RSVP'd on the Discover tab
+2. Sees the Featured Ritual hero; clicking RSVP opens `RsvpModal` on the Invitation step, or the Waitlist form if `capacityFull`
+3. Scrolls the Upcoming Horizons carousel (or uses the arrow buttons); each card's Reserve/Join Waitlist button opens the same modal for that event
+4. Confirming an invitation shows the gold "Ritual Logged" Success pass (real reservation ID, calendar link, share); joining a waitlist shows the "You're on the list!" confirmation with position and notify-preference copy
+5. Switches to "My Events" → sees Hosting (with an expandable invite-link panel), Attending (with real "Add to Calendar" links), and Waitlisted (with real queue position among currently-waitlisted items) — all reflecting whatever was just RSVP'd on the Discover tab; reopening the RSVP button on an already-attending/waitlisted event reopens the modal at the matching confirmation step instead of the Invitation step
 
 ---
 
@@ -772,6 +785,10 @@ Client component. Each axis: `{ label: string, value: number (0–100), descript
 
 Pass `href` on the `BrewGuide` type to link the card via `<Link>`. Without `href`, renders a plain `<div>`. Uses conditional return (not a polymorphic Wrapper component).
 
+### `<RsvpModal open onClose event />`
+
+Self-contained modal; `open` controls mount/unmount via `{open && <RsvpModalInner key={event.id} .../>}` (full remount per open, not a reset-on-reopen render pattern, since there's no exit-animation reason to keep it mounted). The visible step is derived, not stored: `status = getTicket(event.id)?.status ?? event.defaultStatus ?? "none"` picks Invitation / Waitlist form / Waitlisted confirmation / Success pass. Reads ticket state via `useSyncExternalStore(subscribeToEventRsvps, getRsvpSnapshotRaw, ...)` + a plain `getTicket(event.id)` call in the render body — do not pass an object-returning getter directly as the snapshot function (see the Agent note under §5.8). `event.capacityFull` routes a fresh "none" status to the waitlist form instead of the invitation. Reservation IDs and any other randomness are generated inside the confirm click handler, never in render.
+
 ---
 
 ## 8. Agent-Specific Guidelines
@@ -805,6 +822,7 @@ These rules are critical for any AI agent modifying this codebase:
 | Date | Change | Commit |
 |---|---|---|
 | 2026-07-08 | Events page rebuilt from Stitch's "Community Events" + "My Rituals" designs into one page with Discover/My Events tabs: real RSVP/waitlist persistence (`lib/event-rsvp.ts`), a working horizontal carousel, an expandable Hosting panel with a copy-invite-link action, and real Google Calendar links for Attending events. Fixed a genuine unhandled-rejection bug (unguarded `clipboard.writeText` calls) across 3 components while auditing clipboard usage. Global nav untouched | — |
+| 2026-07-09 | Built the RSVP Ritual Experience from Stitch's "Ritual Invitation / Waitlist / Success" designs: new `RsvpModal` component replaces the old instant-toggle RSVP buttons on `FeaturedEvent` and `SessionCard` with a 4-state ceremony (Invitation → Confirm, or Waitlist form → Waitlisted confirmation, or a gold "Ritual Logged" digital pass for Attending). Upgraded `lib/event-rsvp.ts` from a plain status map to a `RsvpRecord` ticket shape (`getTicket`/`confirmAttendance`/`joinWaitlist`), with defensive normalization of the old shape. Fixed a real `useSyncExternalStore` snapshot-identity crash ("Maximum update depth exceeded") by subscribing to a raw JSON string instead of an object-returning getter. Removed the V60 & Chemex Masterclass event's seeded `defaultStatus: "waitlisted"` so the "AT CAPACITY" join form is actually reachable by a fresh visitor. Added `.ticket-topographic`/`.ticket-perforation`/`.ticket-float` utilities. Global nav untouched | — |
 | 2026-07-08 | Community Hub enriched with net-new interactive features (structure unchanged): wired Sort/Filter on Live Pulse (`LivePulseSection`), persisted Like/Save Spot/Follow on `VibeCard` via new `lib/community-interactions.ts`, corrected check-ins to reference real cafes instead of roaster names, added `LiveHeatmapWidget` (real top-3 cafes), `ActiveContributorsWidget` (links to Passport), and `WeeklyPollWidget` (real beans, persisted vote), and added an XP bar to `StatusBanner` | — |
 | 2026-07-08 | Brew Timer implemented from Stitch designs (Paused, Active/Running, Complete): `BrewTimerOverlay` with a real countdown (`lib/brew-timer.ts`), wired to "Start Brew Timer" and the Timer FAB on all 4 brewing guides; `lib/brew-log.ts` for completion tracking; `targetGrams`/`flowNote` added to `lib/brewing-guides.ts` | — |
 | 2026-07-08 | Passport Stamp flow implemented from Stitch designs (Verify Location, Digital Stamp Ritual, Passport Stamped): `PassportStampFlow` modal wired to every cafe's "Stamp My Passport" button, `lib/passport-stamps.ts` for localStorage persistence, `badgeName` added to every `CafeRecord` | — |

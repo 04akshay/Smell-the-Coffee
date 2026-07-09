@@ -93,7 +93,6 @@ export const upcomingEvents: EventRecord[] = [
       "https://lh3.googleusercontent.com/aida-public/AB6AXuDdXa6MerIIHAp0Fp_4be0eCFDVS3YQbT0PVsxOfA7e5crcXL_a56PleofjcaBV9fmM4kAkyCjb_e4GEMTvhatdqmiNerRweefeE0Wl338PcN1gBqGbinZrnMZJRYqxNxG0r0FLb-RZRMMYT7GrKAk0UEg_hGFGGgql6dTbCJj-zjwWgoRSIqy3Q8aEtWOEx3YHfYr3Lpa7bdCZ_qwsX0B4TIsXcpZeNla5WsxjkaTzLpWhnIDBAAiLXg",
     ],
     attendeeCount: 5,
-    defaultStatus: "waitlisted",
     capacityFull: true,
   },
   {

@@ -1,23 +1,26 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/icon";
 import type { EventRecord } from "@/lib/events";
-import { getRsvpStatus, setRsvpStatus, subscribeToEventRsvps } from "@/lib/event-rsvp";
+import { getRsvpStatus, subscribeToEventRsvps } from "@/lib/event-rsvp";
+import { RsvpModal } from "@/components/events/rsvp-modal";
 
 function getServerStatus() {
   return "none" as const;
 }
 
 export function FeaturedEvent({ event }: { event: EventRecord }) {
+  const [open, setOpen] = useState(false);
   const status = useSyncExternalStore(
     subscribeToEventRsvps,
     () => getRsvpStatus(event.id, event.defaultStatus),
     getServerStatus
   );
   const attending = status === "attending";
+  const waitlisted = status === "waitlisted";
 
   return (
     <section className="relative mb-32">
@@ -69,22 +72,24 @@ export function FeaturedEvent({ event }: { event: EventRecord }) {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
-            onClick={() => setRsvpStatus(event.id, attending ? "none" : "attending")}
+            onClick={() => setOpen(true)}
             className={
-              attending
+              attending || waitlisted
                 ? "group/btn flex w-fit items-center justify-center gap-3 rounded-full border-2 border-bean-origin-gold px-8 py-4 font-label-md text-label-md font-bold text-bean-origin-gold transition-colors"
                 : "group/btn flex w-fit items-center justify-center gap-3 rounded-full bg-bean-origin-gold px-8 py-4 font-label-md text-label-md font-bold text-roasted-espresso transition-colors hover:bg-cream-foam"
             }
           >
-            {attending ? "You're Going" : "Immerse Yourself"}
+            {attending ? "View Your Pass" : waitlisted ? "You're Waitlisted" : "Immerse Yourself"}
             <Icon
-              name={attending ? "check_circle" : "arrow_forward"}
-              filled={attending}
+              name={attending || waitlisted ? "check_circle" : "arrow_forward"}
+              filled={attending || waitlisted}
               className="text-[20px] transition-transform duration-300 group-hover/btn:translate-x-1"
             />
           </motion.button>
         </div>
       </div>
+
+      <RsvpModal open={open} onClose={() => setOpen(false)} event={event} />
     </section>
   );
 }

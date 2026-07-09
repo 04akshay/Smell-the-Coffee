@@ -1,33 +1,33 @@
 "use client";
 
-import { useSyncExternalStore } from "react";
+import { useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { motion } from "framer-motion";
 import { Icon } from "@/components/icon";
 import type { EventRecord } from "@/lib/events";
-import { getRsvpStatus, setRsvpStatus, subscribeToEventRsvps } from "@/lib/event-rsvp";
+import { getRsvpStatus, subscribeToEventRsvps } from "@/lib/event-rsvp";
+import { RsvpModal } from "@/components/events/rsvp-modal";
 
 function getServerStatus() {
   return "none" as const;
 }
 
 export function SessionCard({ event }: { event: EventRecord }) {
+  const [open, setOpen] = useState(false);
   const status = useSyncExternalStore(
     subscribeToEventRsvps,
     () => getRsvpStatus(event.id, event.defaultStatus),
     getServerStatus
   );
 
-  function handleClick() {
-    if (status !== "none") {
-      setRsvpStatus(event.id, "none");
-    } else {
-      setRsvpStatus(event.id, event.capacityFull ? "waitlisted" : "attending");
-    }
-  }
-
   const label =
-    status === "attending" ? "Reserved" : status === "waitlisted" ? "Waitlisted" : event.capacityFull ? "Join Waitlist" : "Reserve";
+    status === "attending"
+      ? "View Pass"
+      : status === "waitlisted"
+        ? "Waitlisted"
+        : event.capacityFull
+          ? "Join Waitlist"
+          : "Reserve";
 
   return (
     <motion.div
@@ -89,7 +89,7 @@ export function SessionCard({ event }: { event: EventRecord }) {
             </div>
           </div>
           <button
-            onClick={handleClick}
+            onClick={() => setOpen(true)}
             className={
               status !== "none"
                 ? "flex items-center gap-1 font-label-md text-label-md font-bold text-sage-leaf"
@@ -105,6 +105,8 @@ export function SessionCard({ event }: { event: EventRecord }) {
           </button>
         </div>
       </div>
+
+      <RsvpModal open={open} onClose={() => setOpen(false)} event={event} />
     </motion.div>
   );
 }

@@ -195,6 +195,48 @@ body {
   background-size: 16px 16px;
 }
 
+.ticket-topographic {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400' viewBox='0 0 400 400'%3E%3Cpath d='M0 100c50 0 50 50 100 50s50-50 100-50 50 50 100 50 50-50 100-50M0 150c50 0 50 50 100 50s50-50 100-50 50 50 100 50 50-50 100-50M0 200c50 0 50 50 100 50s50-50 100-50 50 50 100 50 50-50 100-50M0 250c50 0 50 50 100 50s50-50 100-50 50 50 100 50 50-50 100-50' fill='none' stroke='%23C6A664' stroke-width='0.5' stroke-opacity='0.2'/%3E%3C/svg%3E");
+}
+
+.ticket-perforation {
+  position: relative;
+}
+
+.ticket-perforation::before,
+.ticket-perforation::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  background-color: var(--color-cream-foam);
+  border-radius: 50%;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ticket-perforation::before {
+  left: -12px;
+}
+
+.ticket-perforation::after {
+  right: -12px;
+}
+
+@keyframes ticket-float {
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.ticket-float {
+  animation: ticket-float 4s ease-in-out infinite;
+}
+
 .holographic-shimmer {
   background: linear-gradient(
     120deg,
